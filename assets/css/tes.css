@@ -1,3 +1,87 @@
 ::-webkit-scrollbar {
   display: none;
 }
+
+.dataset-table {
+  margin-top: 20px;
+}
+
+.input-section {
+  border: 1px solid #dee2e6;
+  border-radius: 0.25rem;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.input-section h4 {
+  margin-bottom: 15px;
+}
+
+/* Toast styling */
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1050;
+}
+
+.toast {
+  min-width: 300px;
+}
+
+/* Table column width adjustments */
+.table-responsive {
+  overflow-x: auto;
+}
+
+.tweet-column {
+  width: 70%;
+  max-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  word-wrap: break-word;
+}
+
+.sentiment-column {
+  width: 15%;
+  text-align: center;
+}
+
+.action-column {
+  width: 15%;
+  white-space: nowrap;
+}
+
+.number-column {
+  width: 5%;
+  text-align: center;
+}
+
+/* Action button container */
+.action-buttons {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+/* File upload custom styles */
+.file-upload-container {
+  position: relative;
+}
+
+.file-upload-container input[type="file"] {
+  display: block;
+}
+
+.file-upload-label {
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.file-format-hint {
+  display: block;
+  margin-top: 5px;
+  font-size: 0.875rem;
+  color: #6c757d;
+}

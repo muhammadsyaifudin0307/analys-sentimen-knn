@@ -25,7 +25,7 @@ if (isset($_SESSION['login_success'])) {
 // index.php
 // Include config first to ensure database connection and session management
 require_once 'src/config/connection.php';
-
+require_once 'src/includes/functions.php';
 // Check if user is logged in
 if (!is_logged_in()) {
     redirect_to_login();

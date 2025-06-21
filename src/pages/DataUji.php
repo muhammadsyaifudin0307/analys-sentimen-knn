@@ -1,180 +1,283 @@
 <?php
 
+// Call the functions to handle actions for Data Uji
+addTestData($conn);  // Function for adding test data
+importTestData($conn);  // Function for importing test data
+deleteTestData($conn);  // Function for deleting a single test data
+deleteAllTestData($conn);  // Function for deleting all test data
+editTestData($conn);  // Function for editing test data
+exportTestCsv($conn);  // Function for exporting test data as CSV
 
-// Pesan yang akan ditampilkan
-$error_message = "";
-$success_message = "";
-$toast_type = "";
+// Fetch dataset for pagination and stats
+$page = isset($_GET['hal']) && is_numeric($_GET['hal']) && $_GET['hal'] > 0 ? (int)$_GET['hal'] : 1;
+$records_per_page = 10;
+$dataset = fetchTestDataset($conn, $page, $records_per_page);  // Fetch the test data for pagination
+$total_pages = getTestTotalPages($conn, $records_per_page);  // Get total pages for pagination
 
-// Process Excel import
-if (isset($_POST['import_excel'])) {
-    // 1. Verifikasi file diunggah dengan benar
-    if (!isset($_FILES['excel_file']) || $_FILES['excel_file']['error'] != 0) {
-        $error_message = "Terjadi kesalahan saat mengunggah file Excel. Pilih file terlebih dahulu.";
-        $toast_type = 'error';
-    } else {
-        // 2. Verifikasi ekstensi file
-        $file_name = $_FILES['excel_file']['name'];
-        $file_ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
-
-        if ($file_ext != 'xlsx' && $file_ext != 'xls') {
-            $error_message = "File harus berformat Excel (.xlsx atau .xls).";
-            $toast_type = 'error';
-        } else {
-            // 3. Cek apakah autoloader tersedia
-            if (!file_exists('vendor/autoload.php')) {
-                $error_message = "Library PhpSpreadsheet tidak ditemukan. Pastikan Anda menginstal library ini menggunakan Composer.";
-                $toast_type = 'error';
-            } else {
-                // 4. Load library PhpSpreadsheet
-                require 'vendor/autoload.php';
-
-                try {
-                    // 5. Buat reader sesuai dengan format file
-                    if ($file_ext == 'xlsx') {
-                        $reader = new \PhpOffice\PhpSpreadsheet\Reader\Xlsx();
-                    } else {
-                        $reader = new \PhpOffice\PhpSpreadsheet\Reader\Xls();
-                    }
-
-                    // 6. Baca file Excel
-                    $spreadsheet = $reader->load($_FILES['excel_file']['tmp_name']);
-                    $worksheet = $spreadsheet->getActiveSheet();
-                    $rows = $worksheet->toArray();
-
-                    // 7. Cek jumlah baris
-                    if (count($rows) <= 1) {
-                        $error_message = "File Excel tidak berisi data yang cukup. Minimal harus ada baris header dan satu baris data.";
-                        $toast_type = 'error';
-                    } else {
-                        // 8. Mulai proses import
-                        // Skip header row
-                        array_shift($rows);
-
-                        $imported_count = 0;
-                        $skipped_count = 0;
-
-                        // 9. Mulai transaksi database
-                        $conn->begin_transaction();
-
-                        // 10. Persiapkan statement
-                        $stmt = $conn->prepare("INSERT INTO dataset (tweet, sentiment, type) VALUES (?, ?, 'data_latih')");
-
-                        if (!$stmt) {
-                            throw new Exception("Error preparing statement: " . $conn->error);
-                        }
-
-                        // 11. Proses setiap baris data
-                        foreach ($rows as $row) {
-                            // Pastikan baris memiliki minimal 2 kolom
-                            if (isset($row[0]) && isset($row[1])) {
-                                $tweet = trim($row[0]);
-                                $sentiment = strtolower(trim($row[1]));
-
-                                // Validasi data
-                                if (!empty($tweet) && ($sentiment == 'positive' || $sentiment == 'negative')) {
-                                    if (!$stmt->bind_param("ss", $tweet, $sentiment)) {
-                                        throw new Exception("Error binding parameters: " . $stmt->error);
-                                    }
-
-                                    if (!$stmt->execute()) {
-                                        throw new Exception("Error executing statement: " . $stmt->error);
-                                    }
-
-                                    $imported_count++;
-                                } else {
-                                    $skipped_count++;
-                                }
-                            } else {
-                                $skipped_count++;
-                            }
-                        }
-
-                        // 12. Commit transaksi jika berhasil
-                        $conn->commit();
-                        $stmt->close();
-
-                        // 13. Tampilkan pesan hasil
-                        if ($imported_count > 0) {
-                            $success_message = "$imported_count data berhasil diimpor dari Excel.";
-                            if ($skipped_count > 0) {
-                                $success_message .= " ($skipped_count data dilewati karena tidak valid)";
-                            }
-                            $toast_type = 'success';
-                        } else {
-                            $error_message = "Tidak ada data valid yang dapat diimpor dari file Excel.";
-                            $toast_type = 'error';
-                        }
-                    }
-                } catch (Exception $e) {
-                    // 14. Rollback jika terjadi error
-                    if ($conn->connect_errno == 0) {
-                        $conn->rollback();
-                    }
-
-                    $error_message = "Terjadi kesalahan saat memproses file Excel: " . $e->getMessage();
-                    $toast_type = 'error';
-                }
-            }
-        }
-    }
-}
+// Fetch error and success messages
+global $error_message, $success_message, $toast_type;
 ?>
 
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Import Data Excel</title>
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Toastify CSS untuk notifikasi -->
-    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    <title>Data Uji</title>
+    <!-- Include Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 
 <body>
-    <div class="container mt-5">
-        <div class="row">
-            <div class="col-md-8 mx-auto">
-                <div class="card">
-                    <div class="card-header bg-primary text-white">
-                        <h4>Import Data dari Excel</h4>
+    <!-- Toast Notifications -->
+    <div class="toast-container">
+        <?php if (!empty($success_message) && $toast_type == 'success'): ?>
+            <div class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <i class="bi bi-check-circle-fill me-2"></i>
+                        <?php echo $success_message; ?>
                     </div>
-                    <div class="card-body">
-                        <!-- Form upload Excel -->
-                        <form method="post" enctype="multipart/form-data">
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            </div>
+        <?php endif; ?>
+
+        <?php if (!empty($error_message) && $toast_type == 'error'): ?>
+            <div class="toast align-items-center text-white bg-danger border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <i class="bi bi-exclamation-circle-fill me-2"></i>
+                        <?php echo $error_message; ?>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            </div>
+        <?php endif; ?>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="mt-4 mb-5">
+        <div class="d-flex justify-content-between mb-4">
+            <div class="button-left">
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addDataModal">
+                    <i class="bi bi-plus-circle"></i> Tambah Data
+                </button>
+                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#importDataModal">
+                    <i class="bi bi-file-earmark-arrow-up"></i> Import Data
+                </button>
+            </div>
+            <div class="button-right">
+                <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal">
+                    <i class="bi bi-trash"></i> Hapus Semua Data
+                </button>
+            </div>
+        </div>
+
+        <!-- Add Data Modal -->
+        <div class="modal fade" id="addDataModal" tabindex="-1" aria-labelledby="addDataModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="addDataModalLabel">Tambah Data Baru</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <form method="post" action="">
+                        <div class="modal-body">
                             <div class="mb-3">
-                                <label for="excel_file" class="form-label">Pilih File Excel (.xlsx atau .xls)</label>
-                                <input type="file" class="form-control" id="excel_file" name="excel_file" accept=".xlsx, .xls" required>
-                                <div class="form-text">Format: Kolom 1 = Tweet, Kolom 2 = Sentiment (positive/negative)</div>
+                                <label for="tweet" class="form-label">Tweet:</label>
+                                <textarea class="form-control" id="tweet" name="tweet" rows="4" required></textarea>
                             </div>
-                            <button type="submit" name="import_excel" class="btn btn-primary">Import Data</button>
+                            <div class="mb-3">
+                                <label for="sentiment" class="form-label">Sentimen:</label>
+                                <select class="form-select" id="sentiment" name="sentiment" required>
+                                    <option value="" selected disabled>Pilih sentimen</option>
+                                    <option value="positive">Positive</option>
+                                    <option value="negative">Negative</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                            <button type="submit" name="add_test" class="btn btn-primary">Simpan</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Import Data Modal -->
+        <div class="modal fade" id="importDataModal" tabindex="-1" aria-labelledby="importDataModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="importDataModalLabel">Import Data (CSV atau Excel)</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <form method="post" enctype="multipart/form-data" action="">
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label for="file" class="form-label">Pilih File:</label>
+                                <input type="file" class="form-control" id="file" name="file" accept=".csv, .xlsx, .xls" required>
+                                <span class="form-text">Format: CSV atau Excel</span>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                            <button type="submit" name="import_test_file" class="btn btn-info">Upload</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Confirm Delete All Modal -->
+        <div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-labelledby="confirmDeleteModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="confirmDeleteModalLabel">Konfirmasi Penghapusan</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Apakah Anda yakin ingin menghapus semua data?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                        <form method="post" action="">
+                            <button type="submit" name="delete_all_test" class="btn btn-danger">Hapus Semua Data</button>
                         </form>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Table -->
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h3 class="card-title">Dataset Data Uji</h3>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>No.</th>
+                                <th>Tweet</th>
+                                <th>Sentimen</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (count($dataset) > 0): ?>
+                                <?php foreach ($dataset as $index => $row): ?>
+                                    <tr>
+                                        <td><?php echo $index + 1; ?></td>
+                                        <td><?php echo htmlspecialchars($row['tweet']); ?></td>
+                                        <td>
+                                            <?php if ($row['sentiment'] == 'positive'): ?>
+                                                <span class="badge bg-success">Positive</span>
+                                            <?php else: ?>
+                                                <span class="badge bg-danger">Negative</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td>
+                                            <button type="button" class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editModal<?php echo $row['id']; ?>">Edit</button>
+                                            <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal<?php echo $row['id']; ?>">Hapus</button>
+
+                                            <!-- Edit Modal -->
+                                            <div class="modal fade" id="editModal<?php echo $row['id']; ?>" tabindex="-1" aria-labelledby="editModalLabel<?php echo $row['id']; ?>" aria-hidden="true">
+                                                <div class="modal-dialog">
+                                                    <div class="modal-content">
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title">Edit Data</h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                        </div>
+                                                        <form method="post" action="">
+                                                            <div class="modal-body">
+                                                                <input type="hidden" name="edit_test_id" value="<?php echo $row['id']; ?>">
+                                                                <div class="mb-3">
+                                                                    <label for="edit_test_tweet" class="form-label">Tweet:</label>
+                                                                    <textarea class="form-control" name="edit_test_tweet" rows="3" required><?php echo htmlspecialchars($row['tweet']); ?></textarea>
+                                                                </div>
+                                                                <div class="mb-3">
+                                                                    <label for="edit_test_sentiment" class="form-label">Sentimen:</label>
+                                                                    <select class="form-select" name="edit_test_sentiment" required>
+                                                                        <option value="positive" <?php echo ($row['sentiment'] == 'positive') ? 'selected' : ''; ?>>Positive</option>
+                                                                        <option value="negative" <?php echo ($row['sentiment'] == 'negative') ? 'selected' : ''; ?>>Negative</option>
+                                                                    </select>
+                                                                </div>
+                                                            </div>
+                                                            <div class="modal-footer">
+                                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                                                                <button type="submit" name="edit_test_data" class="btn btn-primary">Simpan Perubahan</button>
+                                                            </div>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Delete Modal -->
+                                            <div class="modal fade" id="deleteModal<?php echo $row['id']; ?>" tabindex="-1" aria-labelledby="deleteModalLabel<?php echo $row['id']; ?>" aria-hidden="true">
+                                                <div class="modal-dialog">
+                                                    <div class="modal-content">
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title">Konfirmasi Hapus</h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                        </div>
+                                                        <div class="modal-body">
+                                                            <p>Apakah Anda yakin ingin menghapus data ini?</p>
+                                                        </div>
+                                                        <div class="modal-footer">
+                                                            <form method="post" action="">
+                                                                <input type="hidden" name="delete_test_id" value="<?php echo $row['id']; ?>">
+                                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                                                                <button type="submit" class="btn btn-danger">Hapus</button>
+                                                            </form>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <tr>
+                                    <td colspan="4" class="text-center">
+                                        <?php echo "Belum ada data Uji. Klik tombol 'Tambah Data' untuk menambahkan data baru."; ?>
+                                    </td>
+                                </tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+
+                    <!-- Pagination -->
+                    <?php if ($total_pages > 1): ?>
+                        <nav aria-label="Page navigation">
+                            <ul class="pagination justify-content-center">
+                                <li class="page-item <?php echo ($page <= 1) ? 'disabled' : ''; ?>">
+                                    <a class="page-link" href="?hal=<?php echo $page - 1; ?>">Previous</a>
+                                </li>
+                                <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                                    <li class="page-item <?php echo ($page == $i) ? 'active' : ''; ?>">
+                                        <a class="page-link" href="?hal=<?php echo $i; ?>"><?php echo $i; ?></a>
+                                    </li>
+                                <?php endfor; ?>
+                                <li class="page-item <?php echo ($page >= $total_pages) ? 'disabled' : ''; ?>">
+                                    <a class="page-link" href="?hal=<?php echo $page + 1; ?>">Next</a>
+                                </li>
+                            </ul>
+                        </nav>
+                    <?php endif; ?>
+
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Toastify JS untuk notifikasi -->
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
-
-    <?php if (!empty($error_message) || !empty($success_message)): ?>
-        <script>
-            Toastify({
-                text: "<?php echo !empty($error_message) ? $error_message : $success_message; ?>",
-                duration: 5000,
-                close: true,
-                gravity: "top",
-                position: "right",
-                backgroundColor: "<?php echo $toast_type == 'error' ? '#dc3545' : '#198754'; ?>",
-            }).showToast();
-        </script>
-    <?php endif; ?>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 
 </html>
