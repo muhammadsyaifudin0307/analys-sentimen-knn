@@ -18,7 +18,7 @@
                     <a class="nav-link <?php echo (isset($page) && $page == 'datauji') ? 'active' : ''; ?>" href="index.php?page=datauji">Data Uji</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link <?php echo (isset($page) && $page == 'analisasvm') ? 'active' : ''; ?>" href="index.php?page=analisasvm">Hasil Klasifikasi</a>
+                    <a class="nav-link <?php echo (isset($page) && $page == 'analisa') ? 'active' : ''; ?>" href="index.php?page=analisa">Hasil Klasifikasi</a>
                 </li>
             </ul>
             <div class="d-flex justify-content-center align-items-center fw-bold" data-bs-toggle="modal" data-bs-target="#userInfoModal" style="cursor: pointer;">
