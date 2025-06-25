@@ -17,10 +17,23 @@
                 <li class="nav-item">
                     <a class="nav-link <?php echo (isset($page) && $page == 'datauji') ? 'active' : ''; ?>" href="index.php?page=datauji">Data Uji</a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link <?php echo (isset($page) && $page == 'analisa') ? 'active' : ''; ?>" href="index.php?page=analisa">Hasil Klasifikasi</a>
+                <!-- Dropdown untuk Hasil Klasifikasi -->
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle <?php echo (isset($page) && in_array($page, ['preprocessing', 'tfidf'])) ? 'active' : ''; ?>" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        Hasil Klasifikasi
+                    </a>
+                    <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
+
+                        <li>
+                            <a class="dropdown-item <?php echo (isset($page) && $page == 'preprocessing') ? 'active' : ''; ?>" href="index.php?page=preprocessing">Preprocessing</a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item <?php echo (isset($page) && $page == 'tfidf') ? 'active' : ''; ?>" href="index.php?page=tfidf">TF-IDF</a>
+                        </li>
+                    </ul>
                 </li>
             </ul>
+            <!-- User Info & Logout Modal Trigger -->
             <div class="d-flex justify-content-center align-items-center fw-bold" data-bs-toggle="modal" data-bs-target="#userInfoModal" style="cursor: pointer;">
                 <i class="bi bi-person-circle me-1 fs-3"></i>
                 <?php echo $_SESSION['username']; ?>
@@ -38,7 +51,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <p class="text-muted">Apakah Anda yakin ingin keluar dari web ini?.</p>
+                <p class="text-muted">Apakah Anda yakin ingin keluar dari web ini?</p>
             </div>
             <div class="modal-footer border-0">
                 <a href="logout.php" class="btn btn-danger px-4 py-2 rounded-pill">Logout</a>
@@ -47,7 +60,6 @@
         </div>
     </div>
 </div>
-
 
 <!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>

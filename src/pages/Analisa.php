@@ -1,5 +1,10 @@
 <?php
-
+if (isset($_POST['set_active_tab'])) {
+    $_SESSION['active_tab'] = $_POST['set_active_tab'];  // Menyimpan tab yang aktif di session
+} else {
+    // Tab default jika belum ada perhitungan
+    $_SESSION['active_tab'] = isset($_SESSION['active_tab']) ? $_SESSION['active_tab'] : 'preprocessing';
+}
 $datasetCounts = getDatasetCounts($conn);
 ?>
 <!DOCTYPE html>
@@ -81,9 +86,9 @@ $datasetCounts = getDatasetCounts($conn);
         <div class="row">
             <div class="col-12">
                 <?php
+                // Menyertakan file tabs.php yang sudah diperbarui
                 require_once $_SERVER['DOCUMENT_ROOT'] . '/SentimenSvm/src/component/tabs.php';
                 ?>
-
             </div>
         </div>
     </div>

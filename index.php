@@ -67,7 +67,7 @@ require_once 'src/component/navbar.php'
     <div class="container-fluid p-4">
         <?php
         // Validate page to prevent directory traversal
-        $valid_pages = ['dashboard', 'datalatih', 'datauji', 'analisa'];
+        $valid_pages = ['dashboard', 'datalatih', 'datauji', 'analisa', 'tfidf', 'preprocessing'];
         $page = isset($_GET['page']) ? $_GET['page'] : 'dashboard';
         if (!in_array($page, $valid_pages)) {
             $page = 'dashboard';
