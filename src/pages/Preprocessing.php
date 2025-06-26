@@ -9,7 +9,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     // Cek apakah dataset kosong
     if ($result->num_rows == 0) {
-        // Menampilkan toast notifikasi dan kembali ke halaman yang sama
         echo "<script>
                 var toastHTML = '<div class=\"toast-container position-fixed bottom-0 end-0 p-3\">';
                 toastHTML += '<div class=\"toast align-items-center text-white bg-danger border-0\" role=\"alert\" aria-live=\"assertive\" aria-atomic=\"true\">';
@@ -55,13 +54,23 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $conn->query("DELETE FROM svm_analays.preprocessing");
     foreach ($response_data['processed_texts'] as $index => $processed_text) {
         $data_id = $data_ids[$index]; // The actual data_id from the database
-        $tokenization = json_encode(explode(" ", $processed_text));
-        $stopword = json_encode(explode(" ", $processed_text));
-        $stemming = json_encode(explode(" ", $processed_text));
+        // Mengubah stopword dan stemming menjadi array jika belum
+        $tokenization = is_array($processed_text['tokenized_text']) ? json_encode($processed_text['tokenized_text']) : json_encode(explode(" ", $processed_text['tokenized_text']));
+        $stopword = is_array($processed_text['stopword_removed_text']) ? json_encode($processed_text['stopword_removed_text']) : json_encode(explode(" ", $processed_text['stopword_removed_text']));
+        $stemming = is_array($processed_text['stemmed_text']) ? json_encode($processed_text['stemmed_text']) : json_encode(explode(" ", $processed_text['stemmed_text']));
 
         $insert_query = $conn->prepare("INSERT INTO svm_analays.preprocessing (data_id, cleaning, casefolding, normalisasi, tokenization, stopword, stemming)
                                         VALUES (?, ?, ?, ?, ?, ?, ?)");
-        $insert_query->bind_param('issssss', $data_id, $processed_text, $processed_text, $processed_text, $tokenization, $stopword, $stemming);
+        $insert_query->bind_param(
+            'issssss',
+            $data_id,
+            $processed_text['cleaned_text'],
+            $processed_text['casefolded_text'],
+            $processed_text['normalized_text'],
+            $tokenization,
+            $stopword,
+            $stemming
+        );
         if (!$insert_query->execute()) {
             echo "Error: " . $insert_query->error . "<br>";
         }
@@ -113,6 +122,10 @@ $total_pages = ceil($conn->query($total_query)->fetch_assoc()['total'] / 10);
             text-align: center;
             vertical-align: middle;
         }
+
+        .table-responsive {
+            overflow-x: auto;
+        }
     </style>
 </head>
 
@@ -148,7 +161,11 @@ $total_pages = ceil($conn->query($total_query)->fetch_assoc()['total'] / 10);
                             $tokenization = json_decode($row['tokenization'], true);
                             $stopword = json_decode($row['stopword'], true);
                             $stemming = json_decode($row['stemming'], true);
+
+                            // Check and make sure these are arrays before using implode
                             $tokenization_display = is_array($tokenization) ? implode(", ", $tokenization) : "Invalid tokenization format";
+                            $stopword_display = is_array($stopword) ? implode(", ", $stopword) : "Invalid stopword format";
+                            $stemming_display = is_array($stemming) ? implode(", ", $stemming) : "Invalid stemming format";
 
                             // Dynamically generate names like D1, D2, D3, ...
                             $name = "D" . $counter++;
@@ -159,8 +176,8 @@ $total_pages = ceil($conn->query($total_query)->fetch_assoc()['total'] / 10);
                                     <td>" . htmlspecialchars($row['casefolding']) . "</td>
                                     <td>" . htmlspecialchars($row['normalisasi']) . "</td>
                                     <td>[" . htmlspecialchars($tokenization_display) . "]</td>
-                                    <td>[" . htmlspecialchars(implode(", ", $stopword)) . "]</td>
-                                    <td>[" . htmlspecialchars(implode(", ", $stemming)) . "]</td>
+                                    <td>[" . htmlspecialchars($stopword_display) . "]</td>
+                                    <td>[" . htmlspecialchars($stemming_display) . "]</td>
                                   </tr>";
                         }
                     } else {
