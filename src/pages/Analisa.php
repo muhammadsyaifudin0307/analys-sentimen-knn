@@ -5,7 +5,7 @@ if (isset($_POST['set_active_tab'])) {
     // Tab default jika belum ada perhitungan
     $_SESSION['active_tab'] = isset($_SESSION['active_tab']) ? $_SESSION['active_tab'] : 'preprocessing';
 }
-$datasetCounts = getDatasetCounts($conn);
+
 ?>
 <!DOCTYPE html>
 <html lang="en">

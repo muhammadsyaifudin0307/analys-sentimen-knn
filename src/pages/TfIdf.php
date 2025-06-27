@@ -18,61 +18,66 @@ while ($row = $result->fetch_assoc()) {
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['compute_tfidf'])) {
 
     if (empty($texts)) {
-        echo "No texts to process.";
-        exit;
-    }
+        echo "<p class='text-center text-danger'>No texts to process. Please ensure that data is available.</p>";
+    } else {
+        // Kirim ke Flask API
+        $url = 'http://127.0.0.1:5000/api/compute_tfidf';
+        $data = json_encode(['texts' => $texts]);
 
-    // Kirim ke Flask API
-    $url = 'http://127.0.0.1:5000/api/compute_tfidf';
-    $data = json_encode(['texts' => $texts]);
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json'));
 
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, $url);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json'));
+        $response = curl_exec($ch);
+        if (curl_errno($ch)) {
+            echo 'Error: ' . curl_error($ch);
+            exit;
+        }
+        curl_close($ch);
 
-    $response = curl_exec($ch);
-    if (curl_errno($ch)) {
-        echo 'Error: ' . curl_error($ch);
-        exit;
-    }
-    curl_close($ch);
+        $response_data = json_decode($response, true);
 
-    $response_data = json_decode($response, true);
+        if ($response_data === NULL || !isset($response_data['processed_texts'])) {
+            echo "Error: Invalid response from Flask.";
+            exit;
+        }
 
-    if ($response_data === NULL || !isset($response_data['processed_texts'])) {
-        echo "Error: Invalid response from Flask.";
-        exit;
-    }
+        // Hapus data lama yang ada di tabel tfidf_results sebelum memasukkan data baru
+        $conn->query("DELETE FROM tfidf_results");
 
-    // Hapus data lama yang ada di tabel tfidf_results sebelum memasukkan data baru
-    $conn->query("DELETE FROM tfidf_results");
+        // Simpan hasil TF-IDF yang baru
+        foreach ($response_data['processed_texts'] as $index => $processed_text) {
+            $data_id = $data_ids[$index];
 
-    // Simpan hasil TF-IDF yang baru
-    foreach ($response_data['processed_texts'] as $index => $processed_text) {
-        $data_id = $data_ids[$index];
+            // Pastikan 'tf', 'idf', dan 'tfidf' ada di dalam data sebelum mencoba untuk mengaksesnya
+            if (isset($processed_text['tf']) && isset($processed_text['idf']) && isset($processed_text['tfidf'])) {
+                foreach ($processed_text['tf'] as $terms => $tf) {
+                    $tfidf = isset($processed_text['tfidf'][$terms]) ? $processed_text['tfidf'][$terms] : 0.0;
+                    $idf = isset($processed_text['idf'][$terms]) ? $processed_text['idf'][$terms] : 0.0;
 
-        foreach ($processed_text['tf'] as $terms => $tf) {
-            $tfidf = $processed_text['tfidf'][$terms] ?? 0.0;
-            $idf = $processed_text['idf'][$terms] ?? 0.0;
+                    // Insert query untuk menyimpan terms, frekuensi, dan tf-idf (tanpa word_count)
+                    $sql = "INSERT INTO tfidf_results (data_id, terms, tf, idf, tfidf) VALUES (?, ?, ?, ?, ?)";
+                    $stmt = $conn->prepare($sql);
+                    $stmt->bind_param('isddd', $data_id, $terms, $tf, $idf, $tfidf);
 
-            // Insert query untuk menyimpan terms, frekuensi, dan tf-idf (tanpa word_count)
-            $sql = "INSERT INTO tfidf_results (data_id, terms, tf, idf, tfidf) VALUES (?, ?, ?, ?, ?)";
-            $stmt = $conn->prepare($sql);
-            $stmt->bind_param('isddd', $data_id, $terms, $tf, $idf, $tfidf);
-
-            if (!$stmt->execute()) {
-                echo "Error: " . $stmt->error . "<br>";
+                    if (!$stmt->execute()) {
+                        echo "Error: " . $stmt->error . "<br>";
+                    }
+                }
+            } else {
+                // Jika 'tf', 'idf', atau 'tfidf' tidak ada, tampilkan pesan
+                echo "<p class='text-center text-warning'>No TF, IDF, or TF-IDF data for document {$data_id}. Skipping entry.</p>";
             }
         }
-    }
 
-    // Menandai bahwa proses selesai
-    $_SESSION['process_done'] = true;
-    // Setelah proses selesai, ambil data terbaru dan tampilkan
-    echo "<p class='text-center'>Perhitungan TF-IDF selesai dan data baru telah dimasukkan ke dalam database.</p>";
+        // Menandai bahwa proses selesai
+        $_SESSION['process_done'] = true;
+        // Setelah proses selesai, ambil data terbaru dan tampilkan
+        echo "<p class='text-center text-success'>Perhitungan TF-IDF selesai dan data baru telah dimasukkan ke dalam database.</p>";
+    }
 }
 
 // Pagination settings
@@ -89,12 +94,16 @@ $total_documents = $result_total->fetch_assoc()['total_documents'];
 $query = "SELECT * FROM tfidf_results ORDER BY terms ASC LIMIT $records_per_page OFFSET $offset";
 $result = $conn->query($query);
 
-// Prepare data to display in a matrix format
-$tfidf_matrix = [];
+// INISIALISASI ARRAY YANG BENAR - INI YANG DIPERBAIKI
+$tfidf_matrix = [
+    'tf' => [],
+    'idf' => [],
+    'tfidf' => []
+];
 $doc_name_mapping = [];
 $doc_counter = 1;
-$all_terms_from_db = []; // Untuk menyimpan semua terms dari database
-$word_count_matrix = []; // Untuk menyimpan word count per dokumen per term
+$all_terms_from_db = [];
+$word_count_matrix = [];
 
 if ($result && $result->num_rows > 0) {
     // Build the TF, IDF, TF-IDF matrices
@@ -136,7 +145,6 @@ if ($result && $result->num_rows > 0) {
 }
 
 // Ambil word count dari response Flask untuk ditampilkan
-$word_count_matrix = [];
 if (isset($response_data['processed_texts'])) {
     foreach ($response_data['processed_texts'] as $index => $processed_text) {
         $data_id = $data_ids[$index];
@@ -173,16 +181,32 @@ if ($result_idf && $result_idf->num_rows > 0) {
 
         $idf_data[$term] = [
             'df' => $df_value,
-            'idf_value' => $idf_value // IDF dari Flask yang disimpan di database
+            'idf_value' => $idf_value
         ];
     }
 }
 
-ksort($tfidf_matrix['tf']);
-ksort($tfidf_matrix['idf']);
-ksort($tfidf_matrix['tfidf']);
-ksort($word_count_matrix);
-ksort($idf_data);
+// PENGECEKAN YANG DIPERBAIKI - LEBIH AMAN
+if (!empty($tfidf_matrix['tf'])) {
+    ksort($tfidf_matrix['tf']);
+}
+
+if (!empty($tfidf_matrix['idf'])) {
+    ksort($tfidf_matrix['idf']);
+}
+
+if (!empty($tfidf_matrix['tfidf'])) {
+    ksort($tfidf_matrix['tfidf']);
+}
+
+if (!empty($word_count_matrix)) {
+    ksort($word_count_matrix);
+}
+
+if (!empty($idf_data)) {
+    ksort($idf_data);
+}
+
 ?>
 
 <!DOCTYPE html>
@@ -193,7 +217,6 @@ ksort($idf_data);
     <title>TF-IDF Results</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet" />
     <style>
-        /* Make the table container horizontally scrollable */
         .table-responsive {
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
@@ -216,108 +239,109 @@ ksort($idf_data);
         <!-- Display TF Table -->
         <h3 class="text-center">TF Table (Term Frequency)</h3>
         <div class='table-responsive'>
-            <table class='table table-bordered table-striped table-hover'>
-                <thead class='thead-dark'>
-                    <tr>
-                        <th>Term</th>
+            <?php if (empty($tfidf_matrix['tf'])): ?>
+                <p class="text-center text-warning">No TF data available to display.</p>
+            <?php else: ?>
+                <table class='table table-bordered table-striped table-hover'>
+                    <thead class='thead-dark'>
+                        <tr>
+                            <th>Term</th>
+                            <?php
+                            foreach ($doc_name_mapping as $doc_name) {
+                                echo "<th>{$doc_name}</th>";
+                            }
+                            ?>
+                        </tr>
+                    </thead>
+                    <tbody>
                         <?php
-                        // Display column headers (document names)
-                        foreach ($doc_name_mapping as $doc_name) {
-                            echo "<th>{$doc_name}</th>";
+                        foreach ($tfidf_matrix['tf'] as $term => $doc_values) {
+                            echo "<tr><td>" . htmlspecialchars($term) . "</td>";
+                            foreach ($doc_name_mapping as $doc_name) {
+                                $tf_value = isset($doc_values[$doc_name]) ? $doc_values[$doc_name] : 0;
+                                echo "<td>" . htmlspecialchars($tf_value) . "</td>";
+                            }
+                            echo "</tr>";
                         }
                         ?>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php
-                    // Display TF values for each term
-                    foreach ($tfidf_matrix['tf'] as $term => $doc_values) {
-                        echo "<tr><td>" . htmlspecialchars($term) . "</td>";
-                        foreach ($doc_name_mapping as $doc_name) {
-                            // Display TF value or 0 if not available
-                            $tf_value = isset($doc_values[$doc_name]) ? $doc_values[$doc_name] : 0;
-                            echo "<td>" . htmlspecialchars($tf_value) . "</td>";
-                        }
-                        echo "</tr>";
-                    }
-                    ?>
-                </tbody>
-            </table>
+                    </tbody>
+                </table>
+            <?php endif; ?>
         </div>
 
         <!-- Display Word Count Table -->
         <h3 class="text-center">Word Count Table (Frequency of Terms in Documents)</h3>
         <div class='table-responsive'>
             <h4 class="text-center fw-bolder">N : <?php echo $total_documents; ?></h4>
-            <table class='table table-bordered table-striped table-hover'>
-                <thead class='thead-dark'>
-                    <tr>
-                        <th>Term</th>
+            <?php if (empty($word_count_matrix)): ?>
+                <p class="text-center text-warning">No Word Count data available to display.</p>
+            <?php else: ?>
+                <table class='table table-bordered table-striped table-hover'>
+                    <thead class='thead-dark'>
+                        <tr>
+                            <th>Term</th>
+                            <?php
+                            foreach ($doc_name_mapping as $doc_name) {
+                                echo "<th>{$doc_name}</th>";
+                            }
+                            ?>
+                            <th>df</th>
+                            <th>log(N/df)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
                         <?php
-                        // Display column headers (document names)
-                        foreach ($doc_name_mapping as $doc_name) {
-                            echo "<th>{$doc_name}</th>";
+                        foreach ($word_count_matrix as $term => $doc_values) {
+                            echo "<tr><td>" . htmlspecialchars($term) . "</td>";
+
+                            foreach ($doc_name_mapping as $doc_name) {
+                                $word_count = isset($doc_values[$doc_name]) ? $doc_values[$doc_name] : 0;
+                                echo "<td>" . htmlspecialchars($word_count) . "</td>";
+                            }
+
+                            $df_value = isset($idf_data[$term]) ? $idf_data[$term]['df'] : 0;
+                            $idf_value = isset($idf_data[$term]) ? $idf_data[$term]['idf_value'] : 0;
+                            echo "<td>" . htmlspecialchars($df_value) . "</td>";
+                            echo "<td>" . htmlspecialchars(number_format($idf_value, 6)) . "</td>";
+                            echo "</tr>";
                         }
                         ?>
-                        <th>df</th>
-                        <th>log(N/df)</th> <!-- IDF will be displayed in the log(N/df) column -->
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php
-                    // Display word count values for each term
-                    foreach ($word_count_matrix as $term => $doc_values) {
-                        echo "<tr><td>" . htmlspecialchars($term) . "</td>";
-
-                        // Display word count for each document
-                        foreach ($doc_name_mapping as $doc_name) {
-                            $word_count = isset($doc_values[$doc_name]) ? $doc_values[$doc_name] : 0;
-                            echo "<td>" . htmlspecialchars($word_count) . "</td>";
-                        }
-
-                        // Display the df and log(N/df) (which is actually the IDF value)
-                        $df_value = isset($idf_data[$term]) ? $idf_data[$term]['df'] : 0;
-                        $idf_value = isset($idf_data[$term]) ? $idf_data[$term]['idf_value'] : 0;
-                        echo "<td>" . htmlspecialchars($df_value) . "</td>";
-                        echo "<td>" . htmlspecialchars(number_format($idf_value, 6)) . "</td>";
-                        echo "</tr>";
-                    }
-                    ?>
-                </tbody>
-            </table>
+                    </tbody>
+                </table>
+            <?php endif; ?>
         </div>
-
 
         <!-- Display TF-IDF Table -->
         <h3 class="text-center">TF-IDF Table (Term Frequency - Inverse Document Frequency)</h3>
         <div class='table-responsive'>
-            <table class='table table-bordered table-striped table-hover'>
-                <thead class='thead-dark'>
-                    <tr>
-                        <th>Term</th>
+            <?php if (empty($tfidf_matrix['tfidf'])): ?>
+                <p class="text-center text-warning">No TF-IDF data available to display.</p>
+            <?php else: ?>
+                <table class='table table-bordered table-striped table-hover'>
+                    <thead class='thead-dark'>
+                        <tr>
+                            <th>Term</th>
+                            <?php
+                            foreach ($doc_name_mapping as $doc_name) {
+                                echo "<th>{$doc_name}</th>";
+                            }
+                            ?>
+                        </tr>
+                    </thead>
+                    <tbody>
                         <?php
-                        // Display column headers (document names)
-                        foreach ($doc_name_mapping as $doc_name) {
-                            echo "<th>{$doc_name}</th>";
+                        foreach ($tfidf_matrix['tfidf'] as $term => $doc_values) {
+                            echo "<tr><td>" . htmlspecialchars($term) . "</td>";
+                            foreach ($doc_name_mapping as $doc_name) {
+                                $tfidf_value = isset($doc_values[$doc_name]) ? $doc_values[$doc_name] : 0;
+                                echo "<td>" . htmlspecialchars($tfidf_value) . "</td>";
+                            }
+                            echo "</tr>";
                         }
                         ?>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php
-                    // Display TF-IDF values for each term
-                    foreach ($tfidf_matrix['tfidf'] as $term => $doc_values) {
-                        echo "<tr><td>" . htmlspecialchars($term) . "</td>";
-                        foreach ($doc_name_mapping as $doc_name) {
-                            // Display TF-IDF value or 0 if not available
-                            $tfidf_value = isset($doc_values[$doc_name]) ? $doc_values[$doc_name] : 0;
-                            echo "<td>" . htmlspecialchars($tfidf_value) . "</td>";
-                        }
-                        echo "</tr>";
-                    }
-                    ?>
-                </tbody>
-            </table>
+                    </tbody>
+                </table>
+            <?php endif; ?>
         </div>
 
     </div>

@@ -1,7 +1,10 @@
 <?php
 $process_done = false;  // Flag untuk memeriksa apakah proses selesai
 
-// Cek jika tombol di-submit
+// Pastikan koneksi ke database ada (misalnya menggunakan mysqli_connect)
+// $conn = new mysqli("localhost", "username", "password", "database_name");
+
+// Periksa apakah form disubmit
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     // Mengambil data teks dari tabel 'dataset'
     $query = "SELECT id, tweet FROM svm_analays.dataset";
@@ -32,16 +35,30 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $data_ids[] = $row['id'];
     }
 
-    // Kirim teks ke Flask untuk diproses
+    // Kirim teks ke Flask untuk diproses menggunakan cURL
     $url = 'http://127.0.0.1:5000/api/preprocess';
     $data = json_encode(["texts" => $texts]);
-    $response = file_get_contents($url, false, stream_context_create([
-        'http' => [
-            'header' => "Content-type: application/json\r\n",
-            'method' => 'POST',
-            'content' => $data,
-        ]
-    ]));
+
+    // Inisialisasi cURL
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+    ]);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+
+    // Eksekusi cURL dan ambil respon
+    $response = curl_exec($ch);
+
+    // Periksa jika cURL gagal
+    if (curl_errno($ch)) {
+        echo "Error: " . curl_error($ch);
+        exit;
+    }
+
+    // Menutup koneksi cURL
+    curl_close($ch);
 
     // Periksa apakah response valid
     $response_data = json_decode($response, true);
@@ -54,10 +71,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $conn->query("DELETE FROM svm_analays.preprocessing");
     foreach ($response_data['processed_texts'] as $index => $processed_text) {
         $data_id = $data_ids[$index]; // The actual data_id from the database
-        // Mengubah stopword dan stemming menjadi array jika belum
-        $tokenization = is_array($processed_text['tokenized_text']) ? json_encode($processed_text['tokenized_text']) : json_encode(explode(" ", $processed_text['tokenized_text']));
-        $stopword = is_array($processed_text['stopword_removed_text']) ? json_encode($processed_text['stopword_removed_text']) : json_encode(explode(" ", $processed_text['stopword_removed_text']));
-        $stemming = is_array($processed_text['stemmed_text']) ? json_encode($processed_text['stemmed_text']) : json_encode(explode(" ", $processed_text['stemmed_text']));
+        $tokenization = json_encode($processed_text['tokenized_text']);
+        $stopword = json_encode(explode(" ", $processed_text['stopword_removed_text']));
+        $stemming = json_encode($processed_text['stemmed_text']);
 
         $insert_query = $conn->prepare("INSERT INTO svm_analays.preprocessing (data_id, cleaning, casefolding, normalisasi, tokenization, stopword, stemming)
                                         VALUES (?, ?, ?, ?, ?, ?, ?)");
@@ -78,11 +94,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     $process_done = true;
 }
-
 // Mengambil total jumlah data untuk pagination
 $total_query = "SELECT COUNT(*) AS total FROM svm_analays.preprocessing";
 $total_pages = ceil($conn->query($total_query)->fetch_assoc()['total'] / 10);
 
+// Menentukan halaman yang sedang aktif, jika tidak ada maka default ke halaman 1
+$page = isset($_GET['pagination']) && is_numeric($_GET['pagination']) && $_GET['pagination'] > 0 ? (int)$_GET['pagination'] : 1;
+$offset = ($page - 1) * 10; // 10 adalah jumlah data per halaman
+
+// Query untuk mengambil data berdasarkan offset dan limit
+$query = "SELECT * FROM svm_analays.preprocessing LIMIT 10 OFFSET $offset";
+$result = $conn->query($query);
 ?>
 
 <!DOCTYPE html>
@@ -153,23 +175,18 @@ $total_pages = ceil($conn->query($total_query)->fetch_assoc()['total'] / 10);
                 </thead>
                 <tbody>
                     <?php
-                    $query = "SELECT * FROM svm_analays.preprocessing LIMIT 10 OFFSET 0";
-                    $result = $conn->query($query);
                     if ($result && $result->num_rows > 0) {
-                        $counter = 1; // Start from D1
+                        $counter = ($page - 1) * 10 + 1; // Mulai dari D1 di halaman pertama, D11 di halaman kedua, dll
                         while ($row = $result->fetch_assoc()) {
-                            $tokenization = json_decode($row['tokenization'], true);
-                            $stopword = json_decode($row['stopword'], true);
-                            $stemming = json_decode($row['stemming'], true);
+                            $tokenization = is_array(json_decode($row['tokenization'], true)) ? json_decode($row['tokenization'], true) : explode(", ", $row['tokenization']);
+                            $stopword = is_array(json_decode($row['stopword'], true)) ? json_decode($row['stopword'], true) : explode(", ", $row['stopword']);
+                            $stemming = is_array(json_decode($row['stemming'], true)) ? json_decode($row['stemming'], true) : explode(", ", $row['stemming']);
 
-                            // Check and make sure these are arrays before using implode
-                            $tokenization_display = is_array($tokenization) ? implode(", ", $tokenization) : "Invalid tokenization format";
-                            $stopword_display = is_array($stopword) ? implode(", ", $stopword) : "Invalid stopword format";
-                            $stemming_display = is_array($stemming) ? implode(", ", $stemming) : "Invalid stemming format";
+                            $tokenization_display = implode(", ", $tokenization);
+                            $stopword_display = implode(", ", $stopword);
+                            $stemming_display = implode(", ", $stemming);
 
-                            // Dynamically generate names like D1, D2, D3, ...
-                            $name = "D" . $counter++;
-
+                            $name = "D" . $counter++; // Penomoran yang berlanjut
                             echo "<tr>
                                     <td>{$name}</td>
                                     <td>" . htmlspecialchars($row['cleaning']) . "</td>
@@ -189,7 +206,23 @@ $total_pages = ceil($conn->query($total_query)->fetch_assoc()['total'] / 10);
         </div>
 
         <div class="d-flex justify-content-center">
-            <?php for ($i = 1; $i <= $total_pages; $i++) echo "<a href='?page=$i' class='btn btn-link'>$i</a> "; ?>
+            <?php
+            // Pagination links
+            for ($i = 1; $i <= $total_pages; $i++) {
+                // Mengambil URL saat ini
+                $current_url = "http://" . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
+                $parsed_url = parse_url($current_url);
+                parse_str($parsed_url['query'] ?? '', $query_params);
+
+                // Menjaga agar parameter page tetap ada
+                $query_params['page'] = 'preprocessing'; // Menambahkan page=preprocessing
+                $query_params['pagination'] = $i; // Menambahkan parameter pagination
+
+                // Membuat URL untuk pagination dengan menambahkan parameter page yang sesuai
+                $new_url = $parsed_url['path'] . '?' . http_build_query($query_params);
+                echo "<a href='$new_url' class='btn btn-link'>$i</a> ";
+            }
+            ?>
         </div>
     </div>
 
