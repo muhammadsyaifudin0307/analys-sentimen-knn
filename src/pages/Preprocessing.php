@@ -100,7 +100,7 @@ $total_pages = ceil($conn->query($total_query)->fetch_assoc()['total'] / 10);
 
 // Menentukan halaman yang sedang aktif, jika tidak ada maka default ke halaman 1
 $page = isset($_GET['pagination']) && is_numeric($_GET['pagination']) && $_GET['pagination'] > 0 ? (int)$_GET['pagination'] : 1;
-$offset = ($page - 1) * 10; // 10 adalah jumlah data per halaman
+$offset = ($page - 1) * 30;
 
 // Query untuk mengambil data berdasarkan offset dan limit
 $query = "SELECT * FROM svm_analays.preprocessing LIMIT 10 OFFSET $offset";

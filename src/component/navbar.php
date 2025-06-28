@@ -1,7 +1,7 @@
 <nav class="navbar navbar-expand-lg navbar-light bg-light shadow-sm px-4 py-3">
     <div class="container-fluid">
         <a class="navbar-brand fw-bold text-primary" href="index.php?page=dashboard">
-            <i class="bi bi-graph-up me-2"></i>SENTIMENSVM
+            <i class="bi bi-graph-up me-2"></i>SENTIMENKNN
         </a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
@@ -19,7 +19,7 @@
                 </li>
                 <!-- Dropdown untuk Hasil Klasifikasi -->
                 <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle <?php echo (isset($page) && in_array($page, ['preprocessing', 'tfidf'])) ? 'active' : ''; ?>" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <a class="nav-link dropdown-toggle <?php echo (isset($page) && in_array($page, ['preprocessing', 'tfidf', 'knn'])) ? 'active' : ''; ?>" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         Hasil Klasifikasi
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
@@ -29,6 +29,9 @@
                         </li>
                         <li>
                             <a class="dropdown-item <?php echo (isset($page) && $page == 'tfidf') ? 'active' : ''; ?>" href="index.php?page=tfidf">TF-IDF</a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item <?php echo (isset($page) && $page == 'knn') ? 'active' : ''; ?>" href="index.php?page=knn">KNN</a>
                         </li>
                     </ul>
                 </li>

@@ -67,7 +67,7 @@ require_once 'src/component/navbar.php'
     <div class="container-fluid p-4">
         <?php
         // Validate page to prevent directory traversal
-        $valid_pages = ['dashboard', 'datalatih', 'datauji', 'analisa', 'tfidf', 'preprocessing'];
+        $valid_pages = ['dashboard', 'datalatih', 'datauji', 'tfidf', 'preprocessing', 'knn'];
         $page = isset($_GET['page']) ? $_GET['page'] : 'dashboard';
         if (!in_array($page, $valid_pages)) {
             $page = 'dashboard';
@@ -79,6 +79,7 @@ require_once 'src/component/navbar.php'
     </div>
 
     <!-- Bootstrap JS -->
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 <script>

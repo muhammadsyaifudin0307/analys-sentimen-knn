@@ -1,12 +1,4 @@
-<?php
-if (isset($_POST['set_active_tab'])) {
-    $_SESSION['active_tab'] = $_POST['set_active_tab'];  // Menyimpan tab yang aktif di session
-} else {
-    // Tab default jika belum ada perhitungan
-    $_SESSION['active_tab'] = isset($_SESSION['active_tab']) ? $_SESSION['active_tab'] : 'preprocessing';
-}
 
-?>
 <!DOCTYPE html>
 <html lang="en">
 
@@ -48,40 +40,7 @@ if (isset($_POST['set_active_tab'])) {
 
 <body>
     <div class="px-3 py-4">
-        <!-- Card Section -->
-        <div class="row g-4 mb-4">
-            <!-- Training Data Card -->
-            <div class="col-md-6">
-                <div class="card shadow-lg border-0 card-hover" style="background: linear-gradient(120deg, #4e54c8, #8f94fb); color: #f8f9fa; border-radius: 15px;">
-                    <div class="card-body d-flex align-items-center py-4 px-5">
-                        <div class="me-3">
-                            <i class="bi bi-book-half fs-3" style="color: #f8f9fa;"></i>
-                        </div>
-                        <div class="text-start">
-                            <h6 class="mb-1 fw-semibold">Jumlah Data Latih</h6>
-                            <p class="fs-4 fw-bold mb-1"><?= $datasetCounts['data_latih']; ?></p>
-                            <small>Digunakan untuk melatih model</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Test Data Card -->
-            <div class="col-md-6">
-                <div class="card shadow-lg border-0 card-hover" style="background: linear-gradient(120deg, #43e97b, #38f9d7); color: #212529; border-radius: 15px;">
-                    <div class="card-body d-flex align-items-center py-4 px-5">
-                        <div class="me-3">
-                            <i class="bi bi-clipboard-data fs-3" style="color: #212529;"></i>
-                        </div>
-                        <div class="text-start">
-                            <h6 class="mb-1 fw-semibold">Jumlah Data Uji</h6>
-                            <p class="fs-4 fw-bold mb-1"><?= $datasetCounts['data_uji']; ?></p>
-                            <small>Digunakan untuk menguji model</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+      
         <!-- Tab Section -->
         <div class="row">
             <div class="col-12">
