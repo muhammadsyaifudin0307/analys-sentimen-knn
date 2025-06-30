@@ -1,7 +1,11 @@
 from flask import Flask, request, jsonify, Blueprint
 import re
+from deep_translator import GoogleTranslator
+from langdetect import detect
+
 from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
 from Sastrawi.StopWordRemover.StopWordRemoverFactory import StopWordRemoverFactory
+from Sastrawi.StopWordRemover.StopWordRemover import StopWordRemover
 from collections import Counter
 from math import log10, sqrt
 import numpy as np
@@ -9,70 +13,227 @@ import numpy as np
 # Inisialisasi Flask app
 app = Flask(__name__)
 
-# Inisialisasi Stopword Remover dan Stemmer dari Sastrawi
-factory_stopword = StopWordRemoverFactory()
-stopword_remover = factory_stopword.create_stop_word_remover()
+# === STOPWORD SETUP ===
 
-factory_stemmer = StemmerFactory()
-stemmer = factory_stemmer.create_stemmer()
+def load_additional_stopwords(filepath='stopword-list.txt'):
+    """Load additional stopwords from external file"""
+    additional_stopwords = set()
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip().lower()
+                if line:  # Skip empty lines
+                    additional_stopwords.add(line)
+        print(f"[INFO] Loaded {len(additional_stopwords)} additional stopwords from {filepath}")
+    except FileNotFoundError:
+        print(f"[WARNING] {filepath} tidak ditemukan. Menggunakan stopwords Sastrawi saja.")
+    except Exception as e:
+        print(f"[ERROR] Error loading {filepath}: {e}")
+    
+    return additional_stopwords
+
+# Load stopwords dari Sastrawi
+sastrawi_factory = StopWordRemoverFactory()
+sastrawi_stopwords = set(sastrawi_factory.get_stop_words())
+print(f"[INFO] Loaded {len(sastrawi_stopwords)} Sastrawi stopwords")
+
+# Load stopwords tambahan dari file
+additional_stopwords = load_additional_stopwords()
+
+# Gabungkan kedua set stopwords
+combined_stopwords = sastrawi_stopwords.union(additional_stopwords)
+print(f"[INFO] Total combined stopwords: {len(combined_stopwords)}")
+
+# Custom stopword remover yang menggunakan gabungan stopwords
+class CustomStopwordRemover:
+    def __init__(self, stopword_set):
+        self.stopwords = stopword_set
+
+    def remove(self, text):
+        if not text:
+            return ""
+        words = text.split()
+        filtered = [word for word in words if word.lower() not in self.stopwords]
+        return ' '.join(filtered)
+
+# Inisialisasi custom stopword remover
+custom_stopword_remover = CustomStopwordRemover(combined_stopwords)
+
+# Stemmer
+stemmer_factory = StemmerFactory()
+stemmer = stemmer_factory.create_stemmer()
+
+# === SLANG DICTIONARY SETUP ===
 
 def load_slang_dictionary(filename='slang_dictionary.txt'):
+    """Load slang dictionary from file"""
     slang_dict = {}
     try:
         with open(filename, 'r', encoding='utf-8') as file:
-            for line in file:
+            for line_num, line in enumerate(file, 1):
                 line = line.strip()
-                if ' => ' not in line or not line:
+                if not line or line.startswith('#'):  # Skip empty lines and comments
                     continue
-                parts = line.split(' => ')
+                    
+                if ' => ' not in line:
+                    print(f"[WARNING] Invalid format at line {line_num}: {line}")
+                    continue
+                    
+                parts = line.split(' => ', 1)  # Split only on first occurrence
                 if len(parts) != 2:
+                    print(f"[WARNING] Invalid format at line {line_num}: {line}")
                     continue
-                slang, standard = parts
-                slang_dict[slang.strip()] = standard.strip()
+                    
+                slang, standard = parts[0].strip().lower(), parts[1].strip().lower()
+                if slang and standard:
+                    slang_dict[slang] = standard
+                    
+        print(f"[INFO] Loaded {len(slang_dict)} slang mappings from {filename}")
     except FileNotFoundError:
-        print("Error: Slang dictionary file not found.")
+        print(f"[WARNING] {filename} tidak ditemukan. Normalisasi slang dilewati.")
+    except Exception as e:
+        print(f"[ERROR] Error loading {filename}: {e}")
+    
     return slang_dict
 
-# Load slang dictionary
 slang_dict = load_slang_dictionary()
 
-# Fungsi untuk membersihkan teks
+# === TEXT PREPROCESSING FUNCTIONS ===
+
 def clean_text(text):
-    text = re.sub(r'http\S+', '', text)
+    """Clean text by removing URLs, mentions, hashtags, and non-alphabetic characters"""
+    if not text:
+        return ""
+    
+    # Remove URLs
+    text = re.sub(r'http\S+|www\S+|https\S+', '', text, flags=re.IGNORECASE)
+    # Remove mentions
     text = re.sub(r'@\S+', '', text)
+    # Remove hashtags
     text = re.sub(r'#\S+', '', text)
+    # Remove non-alphabetic characters (keep spaces)
     text = re.sub(r'[^a-zA-Z\s]', '', text)
+    # Remove extra whitespaces
     text = re.sub(r'\s+', ' ', text).strip()
+    
     return text
 
-# Fungsi untuk menggantikan slang dengan kata baku
 def normalize_slang(text):
+    """Normalize slang words using slang dictionary"""
+    if not text or not slang_dict:
+        return text
+    
     words = text.split()
-    normalized_words = [slang_dict.get(word, word) for word in words]
+    normalized_words = []
+    
+    for word in words:
+        word_lower = word.lower()
+        normalized_word = slang_dict.get(word_lower, word)
+        normalized_words.append(normalized_word)
+    
     return ' '.join(normalized_words)
 
-# Fungsi untuk normalisasi teks sederhana
-def normalize_text(text):
-    return text.lower()
+def translate_to_indonesian(text):
+    """Translate text to Indonesian if needed"""
+    if not text:
+        return text
+        
+    try:
+        detected_lang = detect(text)
+        
+        # Only translate if not Indonesian
+        if detected_lang != 'id':
+            translated = GoogleTranslator(source='auto', target='id').translate(text)
+            return translated
+        else:
+            return text
+    except Exception as e:
+        print(f"[WARNING] Translation failed: {e}")
+        return text
 
-# Fungsi untuk preprocessing teks (tahapan bertahap)
-def preprocess_text_step_by_step(text):
-    cleaned_text = clean_text(text)
+def preprocess_text_step_by_step(text, debug=False):
+    """
+    Preprocess text with optional debug output
+    Args:
+        text (str): Input text to preprocess
+        debug (bool): Whether to print debug information
+    """
+    if debug:
+        print(f"\n[DEBUG] Original: {text}")
+
+    # STEP 1: Detect and translate if needed
+    translated_text = translate_to_indonesian(text)
+    if debug:
+        print(f"[DEBUG] Translated: {translated_text}")
+
+    # STEP 2: Clean text
+    cleaned_text = clean_text(translated_text)
+    if debug:
+        print(f"[DEBUG] Cleaned: {cleaned_text}")
+
+    # STEP 3: Case folding
     casefolded_text = cleaned_text.lower()
-    normalized_text = normalize_text(casefolded_text)
-    slang_normalized_text = normalize_slang(normalized_text)
-    tokenized_text = slang_normalized_text.split()
-    stopword_removed_text = stopword_remover.remove(' '.join(tokenized_text))
-    stemmed_text = [stemmer.stem(word) for word in stopword_removed_text.split()]
+    if debug:
+        print(f"[DEBUG] Casefolded: {casefolded_text}")
+
+    # STEP 4: Slang normalization
+    normalized_slang_text = normalize_slang(casefolded_text)
+    if debug:
+        print(f"[DEBUG] Slang Normalized: {normalized_slang_text}")
+
+    # STEP 5: Tokenizing
+    tokenized_text = normalized_slang_text.split()
+    if debug:
+        print(f"[DEBUG] Tokenized: {tokenized_text}")
+
+    # STEP 6: Stopword removal
+    stopword_removed_text = custom_stopword_remover.remove(' '.join(tokenized_text))
+    if debug:
+        print(f"[DEBUG] Stopword Removed: {stopword_removed_text}")
+
+    # STEP 7: Stemming
+    stemmed_words = []
+    for word in stopword_removed_text.split():
+        if word:  # Only stem non-empty words
+            stemmed_word = stemmer.stem(word)
+            stemmed_words.append(stemmed_word)
+    
+    stemmed_text = ' '.join(stemmed_words)
+    if debug:
+        print(f"[DEBUG] Stemmed: {stemmed_text}")
+
     return {
+        'original_text': text,
+        'translated_text': translated_text,
         'cleaned_text': cleaned_text,
         'casefolded_text': casefolded_text,
-        'normalized_text': normalized_text,
-        'slang_normalized_text': slang_normalized_text,
+        'slang_normalized_text': normalized_slang_text,
         'tokenized_text': tokenized_text,
         'stopword_removed_text': stopword_removed_text,
-        'stemmed_text': " ".join(stemmed_text)
+        'stemmed_text': stemmed_text
     }
+
+def preprocess_text_simple(text):
+    """
+    Simple preprocessing without debug output - for internal use
+    """
+    if not text:
+        return ""
+        
+    # Chain all preprocessing steps
+    text = translate_to_indonesian(text)
+    text = clean_text(text)
+    text = text.lower()
+    text = normalize_slang(text)
+    text = custom_stopword_remover.remove(text)
+    
+    # Stemming
+    words = text.split()
+    stemmed_words = [stemmer.stem(word) for word in words if word]
+    
+    return ' '.join(stemmed_words)
+
+# === TF-IDF COMPUTATION FUNCTIONS ===
 
 # Fungsi untuk menghitung Term Frequency (TF)
 def compute_tf(text):
@@ -336,14 +497,21 @@ def compute_knn_euclidean(train_data, test_data, k):
         
     except Exception as e:
         return {"error": f"Error in KNN computation: {str(e)}"}
+# === API ROUTES ===
 
 # Blueprint untuk route preprocess
 preprocess_blueprint = Blueprint('preprocess', __name__)
 
 @preprocess_blueprint.route('/preprocess', methods=['POST'])
 def preprocess_route():
+    """API endpoint for text preprocessing with debug output"""
     try:
-        texts = request.json.get('texts')
+        data = request.json
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+            
+        texts = data.get('texts')
+        debug = data.get('debug', True)  # Default debug=True for this endpoint
 
         if not texts or not isinstance(texts, list):
             return jsonify({'error': 'Invalid input. Please provide a list of texts.'}), 400
@@ -353,10 +521,15 @@ def preprocess_route():
 
         processed_texts = []
         for text in texts:
-            processed_text = preprocess_text_step_by_step(text)
+            processed_text = preprocess_text_step_by_step(text, debug=debug)
             processed_texts.append(processed_text)
 
-        return jsonify({'processed_texts': processed_texts})
+        return jsonify({
+            'success': True,
+            'processed_texts': processed_texts,
+            'total_stopwords': len(combined_stopwords),
+            'total_slang_mappings': len(slang_dict)
+        })
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -393,7 +566,6 @@ def compute_tfidf_route():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
 # Blueprint untuk route klasifikasi dengan Euclidean Distance
 klasifikasi_blueprint = Blueprint('klasifikasi', __name__)
 
@@ -567,5 +739,21 @@ app.register_blueprint(preprocess_blueprint, url_prefix='/api')
 app.register_blueprint(compute_tfidf_blueprint, url_prefix='/api')
 app.register_blueprint(klasifikasi_blueprint, url_prefix='/api')
 
+# Health check endpoint
+@app.route('/health')
+def health_check():
+    return jsonify({
+        'status': 'healthy',
+        'stopwords_loaded': len(combined_stopwords),
+        'slang_mappings_loaded': len(slang_dict),
+        'endpoints': [
+            '/api/preprocess',
+            '/api/compute_tfidf', 
+            '/api/klasifikasi'
+        ]
+    })
+
 if __name__ == '__main__':
+  
+    
     app.run(debug=True, host='127.0.0.1', port=5000)

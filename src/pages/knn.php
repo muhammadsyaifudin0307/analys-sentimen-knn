@@ -625,7 +625,7 @@ $current_k_results = isset($_POST['k_value']) ? getKNNResultsByK($conn, intval($
 
         <?php if (!empty($current_confusion_summary)): ?>
             <div class="container my-4 p-4 shadow-sm">
-                <h4 class="fw-b">Classification Report</h4>
+                <h4 class="fw-bold">Classification Report</h4>
                 <div class="table-responsive shadow-sm">
                     <table class="table table-striped table-bordered text-center mt-3">
                         <thead class="table-dark">
