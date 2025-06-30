@@ -170,6 +170,111 @@ def euclidean_distance(vector1, vector2):
     
     return float(distance)
 
+
+# --- Bagian compute_confusion_matrix ---
+def compute_confusion_matrix(y_true, y_pred):
+    """
+    Menghitung confusion matrix dan macro average metrics (precision, recall, f1-score, accuracy)
+    """
+    if len(y_true) != len(y_pred):
+        return {"error": "Length of y_true and y_pred must be equal"}
+
+    if len(y_true) == 0:
+        return {"error": "No data provided"}
+
+    total_samples = len(y_true)
+    correct_predictions = sum(1 for t, p in zip(y_true, y_pred) if t == p)
+    incorrect_predictions = total_samples - correct_predictions
+    accuracy = correct_predictions / total_samples if total_samples > 0 else 0
+
+    # Ambil semua label unik
+    labels = sorted(list(set(y_true + y_pred)))
+    detailed_confusion_matrix = {label: {l: 0 for l in labels} for label in labels}
+
+    # Hitung jumlah untuk setiap kombinasi aktual-prediksi
+    for true_label, pred_label in zip(y_true, y_pred):
+        detailed_confusion_matrix[true_label][pred_label] += 1
+
+    # Hitung metrik per label
+    label_metrics = {}
+    precisions, recalls, f1_scores, supports = [], [], [], []
+
+    for label in labels:
+        tp = detailed_confusion_matrix[label][label]
+        fp = sum(detailed_confusion_matrix[other][label] for other in labels if other != label)
+        fn = sum(detailed_confusion_matrix[label][other] for other in labels if other != label)
+        tn = total_samples - tp - fp - fn
+        support = sum(detailed_confusion_matrix[label].values())
+
+        precision = tp / (tp + fp) if (tp + fp) > 0 else 0
+        recall = tp / (tp + fn) if (tp + fn) > 0 else 0
+        f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
+
+        label_metrics[label] = {
+            'tp': tp, 'fp': fp, 'fn': fn, 'tn': tn,
+            'support': support,
+            'precision': round(precision, 4),
+            'recall': round(recall, 4),
+            'f1_score': round(f1, 4)
+        }
+
+        precisions.append(precision)
+        recalls.append(recall)
+        f1_scores.append(f1)
+        supports.append(support)
+
+    # Macro average
+    macro_precision = sum(precisions) / len(labels) if labels else 0
+    macro_recall = sum(recalls) / len(labels) if labels else 0
+    macro_f1 = sum(f1_scores) / len(labels) if labels else 0
+
+    # Debug print
+    print("\n===== Confusion Matrix Debug =====")
+    print("Labels       :", labels)
+    print("Actual       :", y_true)
+    print("Predicted    :", y_pred)
+    print("Confusion Matrix (detailed):")
+    for true_label in labels:
+        row = [detailed_confusion_matrix[true_label][pred_label] for pred_label in labels]
+        print(f"{true_label:10}: {row}")
+    print("Per-Label Metrics:")
+    for label, metrics in label_metrics.items():
+        print(f"{label:10}: {metrics}")
+    print("Macro Avg Metrics:")
+    print({
+        'precision': round(macro_precision, 4),
+        'recall': round(macro_recall, 4),
+        'f1_score': round(macro_f1, 4),
+        'accuracy': round(accuracy, 4)
+    })
+    print("==================================\n")
+
+    # Struktur hasil evaluasi
+    results = {
+        'confusion_matrix_summary': {
+            'correct_predictions': correct_predictions,
+            'incorrect_predictions': incorrect_predictions,
+            'total_samples': total_samples
+        },
+        'detailed_confusion_matrix': detailed_confusion_matrix,
+        'per_label_metrics': label_metrics,
+        'per_label_lists': {
+            'precision': [round(p, 4) for p in precisions],
+            'recall': [round(r, 4) for r in recalls],
+            'f1_score': [round(f, 4) for f in f1_scores],
+            'support': supports
+        },
+        'macro_avg_metrics': {
+            'precision': round(macro_precision, 4),
+            'recall': round(macro_recall, 4),
+            'f1_score': round(macro_f1, 4),
+            'accuracy': round(accuracy, 4)
+        },
+        'labels': labels
+    }
+
+    return results
+
 # Fungsi untuk menghitung KNN dengan Euclidean Distance
 def compute_knn_euclidean(train_data, test_data, k):
     try:
@@ -216,6 +321,7 @@ def compute_knn_euclidean(train_data, test_data, k):
             results.append({
                 'test_index': i,
                 'test_text': test_item.get('text', ''),
+                'actual_label': test_item.get('label', 'unknown'),
                 'predicted_label': predicted_label,
                 'k_nearest_neighbors': k_nearest,
                 'label_distribution': dict(label_count)
@@ -294,7 +400,7 @@ klasifikasi_blueprint = Blueprint('klasifikasi', __name__)
 @klasifikasi_blueprint.route('/klasifikasi', methods=['POST'])
 def klasifikasi():
     """
-    Endpoint untuk klasifikasi dengan Euclidean Distance.
+    Endpoint untuk klasifikasi dengan Euclidean Distance dan Confusion Matrix.
     """
     try:
         data = request.json
@@ -337,6 +443,7 @@ def klasifikasi():
         # Kumpulkan semua teks untuk menghitung TF-IDF secara konsisten
         all_texts = []
         train_labels = []
+        test_labels = []
         
         # Proses training data
         for i, item in enumerate(train_data_raw):
@@ -381,6 +488,10 @@ def klasifikasi():
                     'item_content': str(item)[:200]
                 }), 400
             
+            # Cek apakah ada label untuk test data (untuk confusion matrix)
+            test_label = item.get('label', 'unknown')
+            test_labels.append(test_label)
+            
             # Preprocessing teks
             processed_text = preprocess_text_step_by_step(item['text'])['stemmed_text']
             all_texts.append(processed_text)
@@ -405,6 +516,7 @@ def klasifikasi():
         for i in range(len(test_data_raw)):
             test_data.append({
                 'text': test_original_texts[i],
+                'label': test_labels[i],
                 'tfidf': tfidf_results[train_count + i]['tfidf']
             })
         
@@ -413,6 +525,26 @@ def klasifikasi():
         
         if 'error' in knn_results:
             return jsonify({'error': knn_results['error']}), 500
+        
+        # Hitung Confusion Matrix jika ada label yang valid
+        confusion_matrix_results = None
+        if knn_results['success'] and len(knn_results['results']) > 0:
+            # Ambil actual dan predicted labels
+            actual_labels = []
+            predicted_labels = []
+            
+            for result in knn_results['results']:
+                actual_label = result.get('actual_label', 'unknown')
+                predicted_label = result.get('predicted_label', 'unknown')
+                
+                # Hanya hitung confusion matrix jika ada label yang valid
+                if actual_label != 'unknown':
+                    actual_labels.append(actual_label)
+                    predicted_labels.append(predicted_label)
+            
+            # Hitung confusion matrix jika ada data yang valid
+            if actual_labels and predicted_labels:
+                confusion_matrix_results = compute_confusion_matrix(actual_labels, predicted_labels)
         
         return jsonify({
             'success': True,
@@ -423,7 +555,8 @@ def klasifikasi():
                 'total_test_samples': len(test_data),
                 'total_unique_terms': knn_results.get('total_terms', 0)
             },
-            'knn_results': knn_results
+            'knn_results': knn_results,
+            'confusion_matrix': confusion_matrix_results
         })
     
     except Exception as e:
