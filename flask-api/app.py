@@ -101,7 +101,6 @@ slang_dict = load_slang_dictionary()
 # === TEXT PREPROCESSING FUNCTIONS ===
 
 def clean_text(text):
-    """Clean text by removing URLs, mentions, hashtags, and non-alphabetic characters"""
     if not text:
         return ""
     
@@ -152,44 +151,25 @@ def translate_to_indonesian(text):
         return text
 
 def preprocess_text_step_by_step(text, debug=False):
-    """
-    Preprocess text with optional debug output
-    Args:
-        text (str): Input text to preprocess
-        debug (bool): Whether to print debug information
-    """
-    if debug:
-        print(f"\n[DEBUG] Original: {text}")
-
+   
     # STEP 1: Detect and translate if needed
     translated_text = translate_to_indonesian(text)
-    if debug:
-        print(f"[DEBUG] Translated: {translated_text}")
+
 
     # STEP 2: Clean text
     cleaned_text = clean_text(translated_text)
-    if debug:
-        print(f"[DEBUG] Cleaned: {cleaned_text}")
 
     # STEP 3: Case folding
     casefolded_text = cleaned_text.lower()
-    if debug:
-        print(f"[DEBUG] Casefolded: {casefolded_text}")
 
     # STEP 4: Slang normalization
     normalized_slang_text = normalize_slang(casefolded_text)
-    if debug:
-        print(f"[DEBUG] Slang Normalized: {normalized_slang_text}")
 
     # STEP 5: Tokenizing
     tokenized_text = normalized_slang_text.split()
-    if debug:
-        print(f"[DEBUG] Tokenized: {tokenized_text}")
 
     # STEP 6: Stopword removal
     stopword_removed_text = custom_stopword_remover.remove(' '.join(tokenized_text))
-    if debug:
-        print(f"[DEBUG] Stopword Removed: {stopword_removed_text}")
 
     # STEP 7: Stemming
     stemmed_words = []
@@ -199,8 +179,6 @@ def preprocess_text_step_by_step(text, debug=False):
             stemmed_words.append(stemmed_word)
     
     stemmed_text = ' '.join(stemmed_words)
-    if debug:
-        print(f"[DEBUG] Stemmed: {stemmed_text}")
 
     return {
         'original_text': text,

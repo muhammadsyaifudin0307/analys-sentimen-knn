@@ -239,7 +239,7 @@ sort($all_terms_from_db);
 <body>
     <div class="py-3">
         <form method="post" action="" class="text-center mb-4">
-            <button type="submit" name="compute_tfidf" class="btn btn-success btn-lg">Compute TF-IDF for All Texts</button>
+            <button type="submit" name="compute_tfidf" class="btn btn-success btn-lg">Hitung TF-IDF</button>
         </form>
 
         <?php if (isset($_SESSION['process_done']) && $_SESSION['process_done']) : ?>
