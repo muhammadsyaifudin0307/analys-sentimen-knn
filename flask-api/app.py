@@ -151,10 +151,11 @@ def translate_to_indonesian(text):
         return text
 
 def preprocess_text_step_by_step(text, debug=False):
-   
+    """
+    Comprehensive preprocessing with step-by-step tracking
+    """
     # STEP 1: Detect and translate if needed
     translated_text = translate_to_indonesian(text)
-
 
     # STEP 2: Clean text
     cleaned_text = clean_text(translated_text)
@@ -188,104 +189,166 @@ def preprocess_text_step_by_step(text, debug=False):
         'slang_normalized_text': normalized_slang_text,
         'tokenized_text': tokenized_text,
         'stopword_removed_text': stopword_removed_text,
-        'stemmed_text': stemmed_text
+        'stemmed_text': stemmed_text,
+        'final_processed_text': stemmed_text  # This is the final result
     }
 
-def preprocess_text_simple(text):
+# === FIXED TF-IDF COMPUTATION FUNCTIONS ===
+
+def compute_tf_from_final_text(final_processed_text):
     """
-    Simple preprocessing without debug output - for internal use
+    Compute TF from final processed text (after all preprocessing steps)
+    
+    Args:
+        final_processed_text: Text after complete preprocessing (stemming, stopword removal, etc.)
+    
+    Returns:
+        tuple: (tf_dict, word_count_dict, total_terms)
     """
-    if not text:
-        return ""
-        
-    # Chain all preprocessing steps
-    text = translate_to_indonesian(text)
-    text = clean_text(text)
-    text = text.lower()
-    text = normalize_slang(text)
-    text = custom_stopword_remover.remove(text)
+    if not final_processed_text or not final_processed_text.strip():
+        return {}, {}, 0
     
-    # Stemming
-    words = text.split()
-    stemmed_words = [stemmer.stem(word) for word in words if word]
+    # Split into words - these are the final processed terms
+    words = final_processed_text.split()
     
-    return ' '.join(stemmed_words)
+    # Count occurrences of each term
+    word_count = {}
+    for word in words:
+        if word:  # Skip empty strings
+            word_count[word] = word_count.get(word, 0) + 1
 
-# === TF-IDF COMPUTATION FUNCTIONS ===
+    total_terms = len(words)
+    
+    # Calculate TF: term frequency / total terms in document
+    tf = {}
+    for word, count in word_count.items():
+        tf[word] = count / total_terms if total_terms > 0 else 0
+    
+    return tf, word_count, total_terms
 
-# Fungsi untuk menghitung Term Frequency (TF)
-def compute_tf(text):
-    word_count = Counter(text.split())
-    total_words = len(text.split())
-    if total_words == 0:
-        return {}, {}
-    tf = {word: count / total_words for word, count in word_count.items()}
-    return tf, word_count
-
-# Fungsi untuk menghitung Document Frequency (DF) dan IDF
-def compute_idf(texts):
-    N = len(texts)
+def compute_idf_from_final_texts(final_processed_texts):
+    """
+    Compute IDF from final processed texts
+    
+    Args:
+        final_processed_texts: List of texts after complete preprocessing
+    
+    Returns:
+        dict: IDF values for each term
+    """
+    N = len(final_processed_texts)
     if N == 0:
         return {}
     
+    # Document frequency: number of documents containing each term
     df_dict = {}
-    for text in texts:
-        words_in_text = set(text.split())
-        for word in words_in_text:
-            if word in df_dict:
-                df_dict[word] += 1
-            else:
-                df_dict[word] = 1
     
+    for text in final_processed_texts:
+        if not text or not text.strip():
+            continue
+            
+        # Get unique words in this document
+        unique_words_in_doc = set(text.split())
+        
+        # Count document frequency for each unique word
+        for word in unique_words_in_doc:
+            if word:  # Skip empty strings
+                df_dict[word] = df_dict.get(word, 0) + 1
+    
+    # Calculate IDF: log((N + 1) / (DF + 1)) + 1
+        # Calculate IDF: log(N / DF)
     idf_dict = {word: log10(N / df) for word, df in df_dict.items()}
+    
     return idf_dict
 
-# Fungsi untuk menghitung TF-IDF secara manual
-def compute_tfidf_manual(texts):
+def compute_tfidf_manual_fixed(original_texts):
+    """
+    Compute TF-IDF manually with proper preprocessing integration
+    
+    Args:
+        original_texts: List of original text strings
+    
+    Returns:
+        tuple: (tfidf_results, idf_dict, all_terms)
+    """
+    if not original_texts:
+        return [], {}, []
+    
+    # Step 1: Preprocess all texts
+    preprocessing_details = []
+    final_processed_texts = []
+    
+    for text in original_texts:
+        preprocess_result = preprocess_text_step_by_step(text)
+        preprocessing_details.append(preprocess_result)
+        final_processed_texts.append(preprocess_result['final_processed_text'])  # <-- Final processed text
+
+    # Step 2: Get all unique terms from final processed texts
     all_terms = set()
-    for text in texts:
-        all_terms.update(text.split())
+    for text in final_processed_texts:
+        if text and text.strip():
+            all_terms.update(text.split())  # <-- This should be based on 'final_processed_text'
     all_terms = sorted(list(all_terms))
     
+    if not all_terms:
+        return [], {}, preprocessing_details
+    
+    # Step 3: Compute TF for each document using 'final_processed_text'
     tf_results = []
-    word_counts = []
-    for text in texts:
-        tf, word_count = compute_tf(text)
+    word_count_results = []
+    
+    for final_text in final_processed_texts:
+        tf, word_count, total_terms = compute_tf_from_final_text(final_text)
         tf_results.append(tf)
-        word_counts.append(word_count)
+        word_count_results.append({
+            'word_count': word_count,
+            'total_terms': total_terms
+        })
     
-    idf_dict = compute_idf(texts)
+    # Step 4: Compute IDF using 'final_processed_texts'
+    idf_dict = compute_idf_from_final_texts(final_processed_texts)
     
+    # Step 5: Compute TF-IDF
     tfidf_results = []
-    for i, text in enumerate(texts):
-        tfidf_doc = {}
+    for i, final_text in enumerate(final_processed_texts):
         tf_doc = tf_results[i]
+        word_count_info = word_count_results[i]
+        
+        # Calculate TF-IDF for each term
+        tfidf_doc = {}
         for term in all_terms:
             tf_value = tf_doc.get(term, 0)
             idf_value = idf_dict.get(term, 0)
             tfidf_value = tf_value * idf_value
             tfidf_doc[term] = tfidf_value
+        
         tfidf_results.append({
-            'text': text,
-            'word_count': word_counts[i],
+            'original_text': original_texts[i],
+            'final_processed_text': final_text,
+            'word_count': word_count_info['word_count'],  # Count from final processed text
+            'total_terms': word_count_info['total_terms'],
             'tf': tf_doc,
             'tfidf': tfidf_doc,
-            'terms': all_terms
+            'unique_terms_in_doc': len(tf_doc),
+            'preprocessing_steps': preprocessing_details[i]
         })
-    return tfidf_results, idf_dict
+    
+    return tfidf_results, idf_dict, all_terms
 
-# Fungsi untuk mengkonversi tfidf dictionary ke vector
+
+# === DISTANCE COMPUTATION FUNCTIONS ===
+
 def tfidf_to_vector(tfidf_doc, all_terms):
-    """Mengkonversi dictionary TF-IDF ke vector berdasarkan urutan terms"""
-    vector = []
-    for term in all_terms:
-        vector.append(tfidf_doc.get(term, 0))
-    return np.array(vector)
+    """Convert TF-IDF dictionary to normalized vector"""
+    vector = np.array([tfidf_doc.get(term, 0) for term in all_terms])
+    norm = np.linalg.norm(vector)
+    if norm == 0:
+        return vector  # avoid division by zero
+    return vector / norm
 
-# Fungsi untuk menghitung Euclidean Distance
 def euclidean_distance(vector1, vector2):
     """
-    Menghitung Euclidean Distance
+    Compute Euclidean Distance
     Formula: √(Σ(xi - yi)²)
     """
     if len(vector1) != len(vector2):
@@ -295,10 +358,10 @@ def euclidean_distance(vector1, vector2):
     v1 = np.array(vector1) if not isinstance(vector1, np.ndarray) else vector1
     v2 = np.array(vector2) if not isinstance(vector2, np.ndarray) else vector2
     
-    # Hitung perbedaan setiap dimensi (xi - yi)
+    # Calculate differences (xi - yi)
     differences = v1 - v2
     
-    # Hitung kuadrat perbedaan (xi - yi)²
+    # Calculate squared differences (xi - yi)²
     squared_differences = differences ** 2
     
     # Sum of squared differences Σ(xi - yi)²
@@ -309,11 +372,11 @@ def euclidean_distance(vector1, vector2):
     
     return float(distance)
 
+# === CONFUSION MATRIX COMPUTATION ===
 
-# --- Bagian compute_confusion_matrix ---
 def compute_confusion_matrix(y_true, y_pred):
     """
-    Menghitung confusion matrix dan macro average metrics (precision, recall, f1-score, accuracy)
+    Compute confusion matrix and macro average metrics
     """
     if len(y_true) != len(y_pred):
         return {"error": "Length of y_true and y_pred must be equal"}
@@ -326,15 +389,15 @@ def compute_confusion_matrix(y_true, y_pred):
     incorrect_predictions = total_samples - correct_predictions
     accuracy = correct_predictions / total_samples if total_samples > 0 else 0
 
-    # Ambil semua label unik
+    # Get all unique labels
     labels = sorted(list(set(y_true + y_pred)))
     detailed_confusion_matrix = {label: {l: 0 for l in labels} for label in labels}
 
-    # Hitung jumlah untuk setiap kombinasi aktual-prediksi
+    # Count combinations
     for true_label, pred_label in zip(y_true, y_pred):
         detailed_confusion_matrix[true_label][pred_label] += 1
 
-    # Hitung metrik per label
+    # Calculate metrics per label
     label_metrics = {}
     precisions, recalls, f1_scores, supports = [], [], [], []
 
@@ -367,29 +430,7 @@ def compute_confusion_matrix(y_true, y_pred):
     macro_recall = sum(recalls) / len(labels) if labels else 0
     macro_f1 = sum(f1_scores) / len(labels) if labels else 0
 
-    # Debug print
-    print("\n===== Confusion Matrix Debug =====")
-    print("Labels       :", labels)
-    print("Actual       :", y_true)
-    print("Predicted    :", y_pred)
-    print("Confusion Matrix (detailed):")
-    for true_label in labels:
-        row = [detailed_confusion_matrix[true_label][pred_label] for pred_label in labels]
-        print(f"{true_label:10}: {row}")
-    print("Per-Label Metrics:")
-    for label, metrics in label_metrics.items():
-        print(f"{label:10}: {metrics}")
-    print("Macro Avg Metrics:")
-    print({
-        'precision': round(macro_precision, 4),
-        'recall': round(macro_recall, 4),
-        'f1_score': round(macro_f1, 4),
-        'accuracy': round(accuracy, 4)
-    })
-    print("==================================\n")
-
-    # Struktur hasil evaluasi
-    results = {
+    return {
         'confusion_matrix_summary': {
             'correct_predictions': correct_predictions,
             'incorrect_predictions': incorrect_predictions,
@@ -412,12 +453,12 @@ def compute_confusion_matrix(y_true, y_pred):
         'labels': labels
     }
 
-    return results
+# === KNN COMPUTATION ===
 
-# Fungsi untuk menghitung KNN dengan Euclidean Distance
 def compute_knn_euclidean(train_data, test_data, k):
+    """Compute KNN with Euclidean Distance"""
     try:
-        # Ambil semua terms yang unik dari train dan test data
+        # Get all unique terms from train and test data
         all_terms = set()
         for data in train_data + test_data:
             if isinstance(data.get('tfidf'), dict):
@@ -429,16 +470,16 @@ def compute_knn_euclidean(train_data, test_data, k):
         
         results = []
         
-        # Untuk setiap data test
+        # For each test item
         for i, test_item in enumerate(test_data):
             distances = []
             test_vector = tfidf_to_vector(test_item['tfidf'], all_terms)
             
-            # Hitung jarak dengan setiap data train
+            # Calculate distance with each training item
             for j, train_item in enumerate(train_data):
                 train_vector = tfidf_to_vector(train_item['tfidf'], all_terms)
                 
-                # Hitung euclidean distance
+                # Calculate euclidean distance
                 distance = euclidean_distance(test_vector, train_vector)
                 
                 distances.append({
@@ -448,11 +489,11 @@ def compute_knn_euclidean(train_data, test_data, k):
                     'train_text': train_item.get('text', '')
                 })
             
-            # Urutkan berdasarkan jarak dan ambil k terdekat
+            # Sort by distance and take k nearest
             distances.sort(key=lambda x: x['distance'])
             k_nearest = distances[:k]
             
-            # Prediksi berdasarkan mayoritas label
+            # Predict based on majority label
             labels = [neighbor['label'] for neighbor in k_nearest]
             label_count = Counter(labels)
             predicted_label = label_count.most_common(1)[0][0] if label_count else 'unknown'
@@ -475,9 +516,10 @@ def compute_knn_euclidean(train_data, test_data, k):
         
     except Exception as e:
         return {"error": f"Error in KNN computation: {str(e)}"}
+
 # === API ROUTES ===
 
-# Blueprint untuk route preprocess
+# Blueprint untuk preprocessing
 preprocess_blueprint = Blueprint('preprocess', __name__)
 
 @preprocess_blueprint.route('/preprocess', methods=['POST'])
@@ -489,7 +531,7 @@ def preprocess_route():
             return jsonify({'error': 'No data provided'}), 400
             
         texts = data.get('texts')
-        debug = data.get('debug', True)  # Default debug=True for this endpoint
+        debug = data.get('debug', True)
 
         if not texts or not isinstance(texts, list):
             return jsonify({'error': 'Invalid input. Please provide a list of texts.'}), 400
@@ -512,11 +554,12 @@ def preprocess_route():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# Blueprint untuk route compute_tfidf
+# Blueprint untuk TF-IDF computation
 compute_tfidf_blueprint = Blueprint('compute_tfidf', __name__)
 
 @compute_tfidf_blueprint.route('/compute_tfidf', methods=['POST'])
 def compute_tfidf_route():
+    """FIXED: Compute TF-IDF with proper preprocessing integration"""
     try:
         texts = request.json.get('texts')
 
@@ -526,36 +569,51 @@ def compute_tfidf_route():
         if not all(isinstance(text, str) for text in texts):
             return jsonify({'error': 'Each item in the list must be a string.'}), 400
 
-        processed_texts = [preprocess_text_step_by_step(text)['stemmed_text'] for text in texts]
-        tfidf_results, idf_dict = compute_tfidf_manual(processed_texts)
-        
-        final_results = []
+        # Use fixed TF-IDF computation
+        tfidf_results, idf_dict, all_terms = compute_tfidf_manual_fixed(texts)
+
+        # Format results for API response
+        formatted_results = []
         for result in tfidf_results:
-            final_results.append({
-                'text': result['text'],
-                'word_count': result['word_count'],
+            formatted_results.append({
+                'original_text': result['original_text'],
+                'final_processed_text': result['final_processed_text'],
+                'word_count': result['word_count'],  # Dari hasil akhir preprocessing
+                'total_terms': result['total_terms'],
+                'unique_terms_in_doc': result['unique_terms_in_doc'],
                 'tf': result['tf'],
-                'idf': idf_dict,
                 'tfidf': result['tfidf'],
-                'terms': result['terms']
+                'preprocessing_steps': result['preprocessing_steps']
             })
 
-        return jsonify({'processed_texts': final_results})
+        return jsonify({
+            'success': True,
+            'results': formatted_results,
+            'global_idf': idf_dict,
+            'all_unique_terms': all_terms,
+            'total_unique_terms': len(all_terms),
+            'summary': {
+                'total_documents': len(texts),
+                'total_unique_terms_across_corpus': len(all_terms),
+                'preprocessing_info': {
+                    'stopwords_used': len(combined_stopwords),
+                    'slang_mappings_used': len(slang_dict)
+                }
+            }
+        })
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-# Blueprint untuk route klasifikasi dengan Euclidean Distance
+
+# Blueprint untuk klasifikasi
 klasifikasi_blueprint = Blueprint('klasifikasi', __name__)
 
 @klasifikasi_blueprint.route('/klasifikasi', methods=['POST'])
 def klasifikasi():
-    """
-    Endpoint untuk klasifikasi dengan Euclidean Distance dan Confusion Matrix.
-    """
+    """Classification endpoint with Euclidean Distance and Confusion Matrix"""
     try:
         data = request.json
         
-        # Validasi input
         if not data:
             return jsonify({'error': 'No data provided'}), 400
         
@@ -563,7 +621,7 @@ def klasifikasi():
         train_data_raw = data.get('train_data')
         test_data_raw = data.get('test_data')
         
-        # Validasi parameter
+        # Validate parameters
         if k is None:
             return jsonify({'error': 'k_value is required'}), 400
         
@@ -586,100 +644,66 @@ def klasifikasi():
         if k > len(train_data_raw):
             return jsonify({'error': f'k_value ({k}) cannot be greater than number of training samples ({len(train_data_raw)})'}), 400
         
-        # Proses data untuk mendapatkan TF-IDF
-        train_data = []
-        test_data = []
+        # Validate data structure
+        for i, item in enumerate(train_data_raw):
+            if not isinstance(item, dict) or 'text' not in item or 'label' not in item:
+                return jsonify({'error': f'Invalid train_data format at index {i}'}), 400
         
-        # Kumpulkan semua teks untuk menghitung TF-IDF secara konsisten
+        for i, item in enumerate(test_data_raw):
+            if not isinstance(item, dict) or 'text' not in item:
+                return jsonify({'error': f'Invalid test_data format at index {i}'}), 400
+        
+        # Collect all texts for consistent TF-IDF computation
         all_texts = []
         train_labels = []
         test_labels = []
         
-        # Proses training data
-        for i, item in enumerate(train_data_raw):
-            if not isinstance(item, dict):
-                return jsonify({
-                    'error': f'Item {i} in train_data must be a dictionary, got {type(item).__name__}',
-                    'item_content': str(item)[:100]
-                }), 400
-            
-            if 'text' not in item:
-                return jsonify({
-                    'error': f'Item {i} in train_data is missing "text" field',
-                    'available_fields': list(item.keys()),
-                    'item_content': str(item)[:200]
-                }), 400
-                
-            if 'label' not in item:
-                return jsonify({
-                    'error': f'Item {i} in train_data is missing "label" field',
-                    'available_fields': list(item.keys()),
-                    'item_content': str(item)[:200]
-                }), 400
-            
-            # Preprocessing teks
-            processed_text = preprocess_text_step_by_step(item['text'])['stemmed_text']
-            all_texts.append(processed_text)
+        # Process training data
+        for item in train_data_raw:
+            all_texts.append(item['text'])
             train_labels.append(item['label'])
         
-        # Proses test data
-        test_original_texts = []
-        for i, item in enumerate(test_data_raw):
-            if not isinstance(item, dict):
-                return jsonify({
-                    'error': f'Item {i} in test_data must be a dictionary, got {type(item).__name__}',
-                    'item_content': str(item)[:100]
-                }), 400
-            
-            if 'text' not in item:
-                return jsonify({
-                    'error': f'Item {i} in test_data is missing "text" field',
-                    'available_fields': list(item.keys()),
-                    'item_content': str(item)[:200]
-                }), 400
-            
-            # Cek apakah ada label untuk test data (untuk confusion matrix)
-            test_label = item.get('label', 'unknown')
-            test_labels.append(test_label)
-            
-            # Preprocessing teks
-            processed_text = preprocess_text_step_by_step(item['text'])['stemmed_text']
-            all_texts.append(processed_text)
-            test_original_texts.append(item['text'])
+        # Process test data
+        for item in test_data_raw:
+            all_texts.append(item['text'])
+            test_labels.append(item.get('label', 'unknown'))
         
-        # Hitung TF-IDF untuk semua teks
-        if not all_texts or all(len(text.strip()) == 0 for text in all_texts):
-            return jsonify({'error': 'No valid text found after preprocessing. Please check your input data.'}), 400
+        # Compute TF-IDF for all texts using fixed method
+        tfidf_results, idf_dict, all_terms = compute_tfidf_manual_fixed(all_texts)
         
-        tfidf_results, idf_dict = compute_tfidf_manual(all_texts)
+        if not tfidf_results:
+            return jsonify({'error': 'No valid text found after preprocessing'}), 400
         
-        # Pisahkan hasil TF-IDF untuk train dan test data
+        # Separate TF-IDF results for train and test data
         train_count = len(train_data_raw)
         
+        train_data = []
         for i in range(train_count):
             train_data.append({
                 'text': train_data_raw[i]['text'],
                 'label': train_labels[i],
-                'tfidf': tfidf_results[i]['tfidf']
+                'tfidf': tfidf_results[i]['tfidf'],
+                'processed_text': tfidf_results[i]['final_processed_text']
             })
         
+        test_data = []
         for i in range(len(test_data_raw)):
             test_data.append({
-                'text': test_original_texts[i],
+                'text': test_data_raw[i]['text'],
                 'label': test_labels[i],
-                'tfidf': tfidf_results[train_count + i]['tfidf']
+                'tfidf': tfidf_results[train_count + i]['tfidf'],
+                'processed_text': tfidf_results[train_count + i]['final_processed_text']
             })
         
-        # Proses KNN dengan Euclidean Distance
+        # Perform KNN classification
         knn_results = compute_knn_euclidean(train_data, test_data, k)
         
         if 'error' in knn_results:
             return jsonify({'error': knn_results['error']}), 500
         
-        # Hitung Confusion Matrix jika ada label yang valid
+        # Compute Confusion Matrix if labels are available
         confusion_matrix_results = None
         if knn_results['success'] and len(knn_results['results']) > 0:
-            # Ambil actual dan predicted labels
             actual_labels = []
             predicted_labels = []
             
@@ -687,12 +711,10 @@ def klasifikasi():
                 actual_label = result.get('actual_label', 'unknown')
                 predicted_label = result.get('predicted_label', 'unknown')
                 
-                # Hanya hitung confusion matrix jika ada label yang valid
                 if actual_label != 'unknown':
                     actual_labels.append(actual_label)
                     predicted_labels.append(predicted_label)
             
-            # Hitung confusion matrix jika ada data yang valid
             if actual_labels and predicted_labels:
                 confusion_matrix_results = compute_confusion_matrix(actual_labels, predicted_labels)
         
@@ -703,7 +725,13 @@ def klasifikasi():
             'preprocessing_info': {
                 'total_train_samples': len(train_data),
                 'total_test_samples': len(test_data),
-                'total_unique_terms': knn_results.get('total_terms', 0)
+                'total_unique_terms': len(all_terms),
+                'stopwords_used': len(combined_stopwords),
+                'slang_mappings_used': len(slang_dict)
+            },
+            'tfidf_computation_info': {
+                'all_unique_terms': all_terms,
+                'global_idf': idf_dict
             },
             'knn_results': knn_results,
             'confusion_matrix': confusion_matrix_results
@@ -716,6 +744,7 @@ def klasifikasi():
 app.register_blueprint(preprocess_blueprint, url_prefix='/api')
 app.register_blueprint(compute_tfidf_blueprint, url_prefix='/api')
 app.register_blueprint(klasifikasi_blueprint, url_prefix='/api')
+
 
 # Health check endpoint
 @app.route('/health')
