@@ -1,9 +1,6 @@
 <?php
 $process_done = false;  // Flag untuk memeriksa apakah proses selesai
 
-// Pastikan koneksi ke database ada (misalnya menggunakan mysqli_connect)
-// $conn = new mysqli("localhost", "username", "password", "database_name");
-
 // Helper function untuk htmlspecialchars yang aman
 function safe_htmlspecialchars($string)
 {
@@ -155,33 +152,6 @@ $result = $conn->query($query);
     <title>Preprocessing Example</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        #loading {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 24px;
-            color: #333;
-            z-index: 9999;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        }
-
-        #loading:after {
-            content: "Processing...";
-            display: inline-block;
-            padding-left: 10px;
-            animation: blink 1s step-end infinite;
-        }
-
-        @keyframes blink {
-            50% {
-                opacity: 0;
-            }
-        }
 
         .table th,
         .table td {
@@ -222,7 +192,15 @@ $result = $conn->query($query);
             </button>
         </form>
 
-        <div id="loading"></div>
+     <div id="progressContainer" class="mt-3 mb-3" style="display: none;">
+        <div class="progress" style="height: 25px;">
+            <div class="progress-bar progress-bar-striped progress-bar-animated bg-info" 
+                role="progressbar" style="width: 100%;">
+                Sedang diproses...
+            </div>
+        </div>
+    </div>
+
 
         <?php if ($total_count > 0): ?>
             <div class="alert alert-info text-center">
@@ -319,22 +297,23 @@ $result = $conn->query($query);
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.min.js"></script>
     <script>
-        document.getElementById('preprocessForm').addEventListener('submit', function(e) {
-            // Tampilkan loading
-            document.getElementById('loading').style.display = 'block';
+       document.getElementById('preprocessForm').addEventListener('submit', function(e) {
+    // Tampilkan progress bar
+    document.getElementById('progressContainer').style.display = 'block';
 
-            // Disable button untuk mencegah multiple submit
-            const submitBtn = this.querySelector('button[type="submit"]');
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
-        });
+    // Disable button untuk mencegah multiple submit
+    const submitBtn = this.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Sedang diproses...';
+});
 
-        // Auto hide loading jika ada error
-        window.addEventListener('load', function() {
-            setTimeout(function() {
-                document.getElementById('loading').style.display = 'none';
-            }, 100);
-        });
+// Auto hide progress bar jika ada error (fallback)
+window.addEventListener('load', function () {
+    setTimeout(function () {
+        document.getElementById('progressContainer').style.display = 'none';
+    }, 100);
+});
+
     </script>
 </body>
 

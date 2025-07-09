@@ -1,4 +1,4 @@
-<nav class="navbar navbar-expand-lg navbar-light bg-light shadow-sm px-4 py-3">
+<nav class="navbar sticky-top navbar-expand-lg navbar-light bg-light shadow-sm px-4 py-3">
     <div class="container-fluid">
         <a class="navbar-brand fw-bold text-primary" href="index.php?page=dashboard">
             <i class="bi bi-graph-up me-2"></i>SENTIMENKNN
@@ -32,6 +32,9 @@
                         </li>
                         <li>
                             <a class="dropdown-item <?php echo (isset($page) && $page == 'knn') ? 'active' : ''; ?>" href="index.php?page=knn">KNN</a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item <?php echo (isset($page) && $page == 'analisa') ? 'active' : ''; ?>" href="index.php?page=analisa">Analisa Kalimat</a>
                         </li>
                     </ul>
                 </li>

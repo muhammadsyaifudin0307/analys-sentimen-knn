@@ -99,7 +99,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SENTIMENSVM - Registrasi</title>
+    <title>SENTIMENKNN - Registrasi</title>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
@@ -110,7 +110,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <body>
     <div class="registration-card">
         <div class="registration-header">
-            <h3 class="m-0"><i class="bi bi-graph-up me-2"></i>SENTIMENSVM</h3>
+            <h3 class="m-0"><i class="bi bi-graph-up me-2"></i>SENTIMEKNN</h3>
             <p class="mb-0 mt-2">Registrasi Akun Baru</p>
         </div>
         <div class="registration-body">
@@ -200,7 +200,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             </form>
 
             <div class="text-center mt-4">
-                <small class="text-muted">© <?php echo date('Y'); ?> SENTIMENSVM - Sistem Analisis Sentimen</small>
+                <small class="text-muted">© <?php echo date('Y'); ?> SENTIMENKNN - Sistem Analisis Sentimen</small>
             </div>
         </div>
     </div>

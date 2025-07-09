@@ -740,10 +740,142 @@ def klasifikasi():
     except Exception as e:
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
 
+
+# Blueprint untuk analisis sarkasme
+sarkasme_blueprint = Blueprint('sarkasme', __name__)
+
+@sarkasme_blueprint.route('/sarc', methods=['POST'])
+def analisis_sarkasme():
+    """Endpoint untuk analisis sarkasme dengan KNN"""
+    try:
+        data = request.json
+        
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        # Ambil data dari request
+        test_data_text = data.get('testData')
+        sentiment = data.get('sentiment')
+        k_value = data.get('kValue')
+        train_data_raw = data.get('trainData', [])  
+        # Validasi input
+        if not test_data_text:
+            return jsonify({'error': 'testData is required'}), 400
+            
+        if not sentiment:
+            return jsonify({'error': 'sentiment is required'}), 400
+            
+        if not k_value:
+            return jsonify({'error': 'kValue is required'}), 400
+            
+        try:
+            k_value = int(k_value)
+            if k_value <= 0:
+                return jsonify({'error': 'kValue must be positive integer'}), 400
+        except ValueError:
+            return jsonify({'error': 'kValue must be a valid integer'}), 400
+        
+        # Jika tidak ada data latih, gunakan data default atau return error
+        if not train_data_raw:
+            return jsonify({'error': 'No training data available'}), 400
+        
+        if k_value > len(train_data_raw):
+            return jsonify({'error': f'kValue ({k_value}) cannot be greater than training samples ({len(train_data_raw)})'}), 400
+        
+        # Persiapkan data untuk klasifikasi
+        all_texts = []
+        train_labels = []
+        
+        # Tambahkan data latih
+        for item in train_data_raw:
+            all_texts.append(item['text'])
+            train_labels.append(item['label'])
+        
+        # Tambahkan data uji
+        all_texts.append(test_data_text)
+        
+        # Compute TF-IDF untuk semua teks
+        tfidf_results, idf_dict, all_terms = compute_tfidf_manual_fixed(all_texts)
+        
+        if not tfidf_results:
+            return jsonify({'error': 'No valid text found after preprocessing'}), 400
+        
+        # Pisahkan hasil TF-IDF untuk train dan test
+        train_count = len(train_data_raw)
+        
+        train_data = []
+        for i in range(train_count):
+            train_data.append({
+                'text': train_data_raw[i]['text'],
+                'label': train_labels[i],
+                'tfidf': tfidf_results[i]['tfidf'],
+                'processed_text': tfidf_results[i]['final_processed_text']
+            })
+        
+        test_data = [{
+            'text': test_data_text,
+            'label': sentiment,  # Label asli untuk evaluasi
+            'tfidf': tfidf_results[train_count]['tfidf'],
+            'processed_text': tfidf_results[train_count]['final_processed_text']
+        }]
+        
+        # Lakukan klasifikasi KNN
+        knn_results = compute_knn_euclidean(train_data, test_data, k_value)
+        
+        if 'error' in knn_results:
+            return jsonify({'error': knn_results['error']}), 500
+        
+        # Ambil prediksi untuk data uji
+        prediction = 'unknown'
+        confidence_info = {}
+        distance_results = {}
+        
+        if knn_results['success'] and len(knn_results['results']) > 0:
+            result = knn_results['results'][0]  # Hanya ada satu data uji
+            prediction = result['predicted_label']
+            confidence_info = {
+                'label_distribution': result['label_distribution'],
+                'k_nearest_neighbors': result['k_nearest_neighbors']
+            }
+            
+            # Tambahkan informasi jarak
+            distance_results = {
+                'k_nearest_distances': result.get('k_nearest_distances', []),
+                'all_distances': result.get('all_distances', []),
+                'distance_calculation_details': result.get('distance_calculation_details', {}),
+                'euclidean_distance_formula': "√(Σ(xi - yi)²)"
+            }
+        
+        return jsonify({
+            'success': True,
+            'prediction': prediction,
+            'test_text': test_data_text,
+            'actual_sentiment': sentiment,
+            'k_value': k_value,
+            'confidence_info': confidence_info,
+            'distance_results': distance_results,  
+            'preprocessing_info': {
+                'original_text': test_data_text,
+                'processed_text': tfidf_results[train_count]['final_processed_text'],
+                'preprocessing_steps': tfidf_results[train_count]['preprocessing_steps']
+            },
+            'training_data_count': len(train_data_raw),
+            'total_unique_terms': len(all_terms),
+            'tfidf_info': {
+                'test_tfidf_vector': tfidf_results[train_count]['tfidf'],
+                'unique_terms': list(all_terms),
+                'idf_values': idf_dict
+            }
+        })
+    
+    except Exception as e:
+        return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
+
 # Register blueprints
 app.register_blueprint(preprocess_blueprint, url_prefix='/api')
 app.register_blueprint(compute_tfidf_blueprint, url_prefix='/api')
 app.register_blueprint(klasifikasi_blueprint, url_prefix='/api')
+app.register_blueprint(sarkasme_blueprint, url_prefix='/api')
 
 
 # Health check endpoint
@@ -756,7 +888,8 @@ def health_check():
         'endpoints': [
             '/api/preprocess',
             '/api/compute_tfidf', 
-            '/api/klasifikasi'
+            '/api/klasifikasi',
+            '/api/sarc' 
         ]
     })
 

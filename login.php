@@ -16,7 +16,7 @@ require_once 'src/auth/login_process.php';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SENTIMENSVM - Login</title>
+    <title>SENTIMENKNN - Login</title>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
@@ -46,7 +46,7 @@ require_once 'src/auth/login_process.php';
             <div class="login-header">
                 <div class="d-flex align-items-center justify-content-center mb-3">
                     <i class="bi bi-graph-up fs-1 me-2"></i>
-                    <h3 class="m-0">SENTIMENSVM</h3>
+                    <h3 class="m-0">SENTIMENKNN</h3>
                 </div>
                 <p class="mb-0">Sistem Analisis Sentimen</p>
             </div>
@@ -112,7 +112,7 @@ require_once 'src/auth/login_process.php';
 
                 <!-- Footer -->
                 <div class="text-center mt-4">
-                    <small class="text-muted">© <?php echo date('Y'); ?> SENTIMENSVM - Sistem Analisis Sentimen</small>
+                    <small class="text-muted">© <?php echo date('Y'); ?> SENTIMENKNN - Sistem Analisis Sentimen</small>
                 </div>
             </div>
         </div>

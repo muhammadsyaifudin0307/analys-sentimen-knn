@@ -86,9 +86,9 @@ $negativePercentage = $sentimentData['total'] > 0 ? round(($sentimentData['negat
                             <i class="bi bi-gear me-1"></i>Metodologi
                         </h6>
                         <ul class="list-unstyled">
-                            <li><i class="bi bi-check-circle text-success me-2"></i><strong>Algoritma:</strong> SVM</li>
+                            <li><i class="bi bi-check-circle text-success me-2"></i><strong>Algoritma:</strong> KNN</li>
                             <li><i class="bi bi-check-circle text-success me-2"></i><strong>Sumber:</strong> Twitter/X</li>
-                            <li><i class="bi bi-check-circle text-success me-2"></i><strong>Preprocessing:</strong> Tokenization, Normalisasi</li>
+                            <li><i class="bi bi-check-circle text-success me-2"></i><strong>Preprocessing:</strong> Cleaning</li>
                             <li><i class="bi bi-check-circle text-success me-2"></i><strong>Klasifikasi:</strong> Positif / Negatif</li>
                             <li><i class="bi bi-check-circle text-success me-2"></i><strong>Total Dataset:</strong> <?php echo number_format($sentimentData['total']); ?> tweet</li>
                         </ul>
