@@ -5,7 +5,6 @@ $data_latih_sarkasme = [];
 while ($row = $result->fetch_assoc()) {
     $data_latih_sarkasme[] = ["text" => $row["tweet"], "label" => $row["sentiment"]];
 }
-
 // Ambil Riwayat Kalimat
 $sql_history = "SELECT * FROM analysis_results ORDER BY created_at DESC";
 $result_history = $conn->query($sql_history);
@@ -20,16 +19,14 @@ if (isset($_GET['delete_id'])) {
     $delete_sql = "DELETE FROM analysis_results WHERE id = ?";
     $stmt = $conn->prepare($delete_sql);
     $stmt->bind_param("i", $delete_id);
-
     if ($stmt->execute()) {
-        // Redirect ke halaman analisa setelah penghapusan
-        header("Location: index.php?page=analisa"); // Correkte URL untuk pengalihan
-        exit;
+        // If delete is successful, redirect back
+        $success_message = "Data berhasil dihapus.";
+        $toast_type = 'success';
     } else {
         $error_message = "Gagal menghapus data: " . $stmt->error;
     }
 }
-
 // Fungsi kirim data ke Flask API
 function sendToFlaskSarkasme($testData, $sentiment, $kValue, $trainData)
 {
@@ -212,6 +209,7 @@ function getLabelIcon($label)
         .badge-primary {
             background-color: #007bff;
         }
+
 
         .stats-row {
             display: flex;
@@ -398,6 +396,8 @@ function getLabelIcon($label)
                             </div>
                         <?php endif; ?>
 
+
+
                         <!-- K-Nearest Neighbors -->
                         <?php if (isset($analysis_details['confidence_info']['k_nearest_neighbors']) && !empty($analysis_details['confidence_info']['k_nearest_neighbors'])): ?>
                             <div class="nearest-neighbors-table">
@@ -462,7 +462,7 @@ function getLabelIcon($label)
                                 <tr>
                                     <td><?= $index + 1; ?></td>
                                     <td class="text-truncate" style="max-width: 200px;" title="<?= htmlspecialchars($history['test_data']); ?>">
-                                        <?= htmlspecialchars(substr($history['test_data'], 0, 50)); ?>...
+                                        <?= htmlspecialchars(substr($history['test_data'], 0, 50)); ?>
                                     </td>
                                     <td>
                                         <span class="badge <?= strtolower($history['sentiment_actual']) === 'negative' ? 'badge-danger' : 'badge-success' ?>">
@@ -481,8 +481,8 @@ function getLabelIcon($label)
                                         </span>
                                     </td>
                                     <td>
-                                        <!-- Hapus button with X icon -->
-                                        <a href="?delete_id=<?php echo $history['id']; ?>" class="btn btn-danger btn-sm" title="Hapus">
+                                        <!-- Updated button with X icon -->
+                                        <a href="?page=analisa&delete_id=<?php echo $history['id']; ?>" class="btn btn-danger btn-sm" title="Hapus">
                                             <i class="bi bi-x-circle"></i>
                                         </a>
                                     </td>
@@ -493,7 +493,6 @@ function getLabelIcon($label)
                 <?php endif; ?>
             </div>
         </div>
-
     </div>
     <script>
         // Loading overlay
