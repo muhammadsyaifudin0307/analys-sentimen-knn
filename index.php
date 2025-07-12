@@ -42,7 +42,7 @@ if (!is_logged_in()) {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link rel="stylesheet" href="assets/css/tes.css">
+    <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <?php
 require_once 'src/component/navbar.php'
@@ -67,7 +67,7 @@ require_once 'src/component/navbar.php'
     <div class="container-fluid p-4">
         <?php
         // Validate page to prevent directory traversal
-        $valid_pages = ['dashboard', 'datalatih', 'datauji', 'tfidf', 'preprocessing', 'knn','analisa'];
+        $valid_pages = ['dashboard', 'datalatih', 'datauji', 'tfidf', 'preprocessing', 'knn', 'analisa'];
         $page = isset($_GET['page']) ? $_GET['page'] : 'dashboard';
         if (!in_array($page, $valid_pages)) {
             $page = 'dashboard';

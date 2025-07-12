@@ -1,12 +1,12 @@
 <?php
-// Start the session
+// Memulai session jika session belum dimulai
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
 
-// Define a constant to check in login_process.php
+// Mendefinisikan konstanta untuk memeriksa dalam login_process.php
 define('INCLUDED_FROM_LOGIN', true);
-// Include the authentication logic
+// Menyertakan logika otentikasi (proses login)
 require_once 'src/auth/login_process.php';
 ?>
 
@@ -17,15 +17,15 @@ require_once 'src/auth/login_process.php';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SENTIMENKNN - Login</title>
-    <!-- Bootstrap CSS -->
+    <!-- Menyertakan Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Bootstrap Icons -->
+    <!-- Menyertakan Bootstrap Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/log-regist.css">
 </head>
 
 <body>
-    <!-- Success Message Toast -->
+    <!-- Menampilkan pesan sukses jika logout berhasil -->
     <?php if (!empty($logout_success_message)) : ?>
         <div class="toast-container position-fixed top-0 end-0 p-3">
             <div class="toast align-items-center text-bg-success border-0 show" role="alert" aria-live="assertive" aria-atomic="true">
@@ -42,7 +42,7 @@ require_once 'src/auth/login_process.php';
 
     <div class="login-card-wrapper">
         <div class="login-card">
-            <!-- Login Header -->
+            <!-- Header Login -->
             <div class="login-header">
                 <div class="d-flex align-items-center justify-content-center mb-3">
                     <i class="bi bi-graph-up fs-1 me-2"></i>
@@ -51,9 +51,9 @@ require_once 'src/auth/login_process.php';
                 <p class="mb-0">Sistem Analisis Sentimen</p>
             </div>
 
-            <!-- Login Body -->
+            <!-- Body Login -->
             <div class="login-body">
-                <!-- Error Message Toast -->
+                <!-- Menampilkan pesan error jika login gagal -->
                 <?php if (!empty($error_message)): ?>
                     <div class="toast-container position-fixed top-0 end-0 p-3">
                         <div class="toast align-items-center text-bg-danger border-0" role="alert" aria-live="assertive" aria-atomic="true">
@@ -68,12 +68,12 @@ require_once 'src/auth/login_process.php';
                     </div>
                 <?php endif; ?>
 
-                <!-- Login Form -->
+                <!-- Form Login -->
                 <form method="post" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" novalidate>
-                    <!-- CSRF Token -->
+                    <!-- Token CSRF untuk melindungi form dari serangan -->
                     <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
 
-                    <!-- Username Field -->
+                    <!-- Input Username -->
                     <div class="mb-3">
                         <label for="username" class="form-label">Username</label>
                         <div class="input-group">
@@ -84,7 +84,7 @@ require_once 'src/auth/login_process.php';
                         </div>
                     </div>
 
-                    <!-- Password Field -->
+                    <!-- Input Password -->
                     <div class="mb-4">
                         <label for="password" class="form-label">Password</label>
                         <div class="input-group">
@@ -97,7 +97,7 @@ require_once 'src/auth/login_process.php';
                         </div>
                     </div>
 
-                    <!-- Submit Button -->
+                    <!-- Tombol Submit untuk Login -->
                     <div class="d-grid mb-3">
                         <button type="submit" class="btn btn-primary">
                             <i class="bi bi-box-arrow-in-right me-1"></i> Login
@@ -105,23 +105,20 @@ require_once 'src/auth/login_process.php';
                     </div>
                 </form>
 
-                <!-- Registration Link -->
+                <!-- Tautan untuk menuju halaman registrasi jika belum punya akun -->
                 <div class="text-center mt-3">
                     <p class="mb-0">Belum memiliki akun? <a href="registration.php" class="text-decoration-none">Daftar di sini</a></p>
                 </div>
 
-                <!-- Footer -->
-                <div class="text-center mt-4">
-                    <small class="text-muted">© <?php echo date('Y'); ?> SENTIMENKNN - Sistem Analisis Sentimen</small>
-                </div>
+
             </div>
         </div>
     </div>
 
-    <!-- Bootstrap JS -->
+    <!-- Menyertakan Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
 
-    <!-- Custom JS -->
+    <!-- Script Kustom untuk Menangani Interaksi di Halaman -->
     <script src="assets/js/index.js"></script>
 </body>
 

@@ -1,37 +1,39 @@
 <?php
+// Memulai session untuk melacak status login pengguna
 session_start();
 
-// Redirect to dashboard if already logged in
+// Jika pengguna sudah login, alihkan ke halaman dashboard
 if (isset($_SESSION['user_id'])) {
     header("Location: index.php");
     exit();
 }
 
-// Include database connection
+// Menyertakan koneksi ke database
 require_once 'src/config/connection.php';
 
 $success_message = '';
 $error_message = '';
 $username = '';
-// Process registration form
+
+// Proses form registrasi saat metode permintaan adalah POST
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    // Get form data
+    // Mendapatkan data form dari input pengguna
     $username = $conn->real_escape_string($_POST['username']);
     $password = $_POST['password'];
     $confirm_password = $_POST['confirm_password'];
     $email = $conn->real_escape_string($_POST['email']);
 
-    // Validate input
+    // Validasi input
     $errors = [];
 
-    // Check username
+    // Validasi username
     if (empty($username)) {
         $errors[] = "Username wajib diisi";
     } elseif (strlen($username) < 3 || strlen($username) > 50) {
         $errors[] = "Username harus terdiri dari 3-50 karakter";
     }
 
-    // Check if username already exists
+    // Cek apakah username sudah ada di database
     $stmt = $conn->prepare("SELECT id FROM users WHERE username = ?");
     $stmt->bind_param("s", $username);
     $stmt->execute();
@@ -41,7 +43,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
     $stmt->close();
 
-    // Check email
+    // Validasi email
     if (empty($email)) {
         $errors[] = "Email wajib diisi";
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -50,7 +52,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $errors[] = "Email terlalu panjang (maksimal 100 karakter)";
     }
 
-    // Check if email already exists
+    // Cek apakah email sudah ada di database
     $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
     $stmt->bind_param("s", $email);
     $stmt->execute();
@@ -60,7 +62,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
     $stmt->close();
 
-    // Check password
+    // Validasi password
     if (empty($password)) {
         $errors[] = "Password wajib diisi";
     } elseif (strlen($password) < 6) {
@@ -69,25 +71,28 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $errors[] = "Konfirmasi password tidak sesuai";
     }
 
-    // If no errors, proceed with registration
+    // Jika tidak ada error, lanjutkan dengan proses registrasi
     if (empty($errors)) {
-        // Hash the password
+        // Meng-hash password
         $hashed_password = password_hash($password, PASSWORD_DEFAULT);
 
-        // Insert new user
+        // Menyimpan data pengguna baru ke database
         $stmt = $conn->prepare("INSERT INTO users (username, password, email, created_at) VALUES (?, ?, ?, NOW())");
         $stmt->bind_param("sss", $username, $hashed_password, $email);
 
+        // Jika berhasil disimpan, tampilkan pesan sukses
         if ($stmt->execute()) {
             $success_message = "Registrasi berhasil! Silakan <a href='login.php'>login</a> untuk melanjutkan.";
 
-            // Clear form data after successful registration
+            // Kosongkan data form setelah registrasi berhasil
             $username = $email = "";
         } else {
+            // Jika terjadi kegagalan, tampilkan pesan error
             $error_message = "Registrasi gagal: " . $conn->error;
         }
         $stmt->close();
     } else {
+        // Gabungkan semua pesan error dan tampilkan
         $error_message = implode("<br>", $errors);
     }
 }
@@ -100,11 +105,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SENTIMENKNN - Registrasi</title>
-    <!-- Bootstrap CSS -->
+    <!-- Menyertakan Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Bootstrap Icons -->
+    <!-- Menyertakan Bootstrap Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/log-regist.css">
 </head>
 
 <body>
@@ -114,6 +119,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <p class="mb-0 mt-2">Registrasi Akun Baru</p>
         </div>
         <div class="registration-body">
+            <!-- Menampilkan pesan sukses jika ada -->
             <?php if (!empty($success_message)): ?>
                 <div class="toast-container position-fixed top-0 end-0 p-3">
                     <div class="toast align-items-center text-bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
@@ -128,6 +134,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 </div>
             <?php endif; ?>
 
+            <!-- Menampilkan pesan error jika ada -->
             <?php if (!empty($error_message)): ?>
                 <div class="toast-container position-fixed top-0 end-0 p-3">
                     <div class="toast align-items-center text-bg-danger border-0" role="alert" aria-live="assertive" aria-atomic="true">
@@ -143,6 +150,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <?php endif; ?>
 
 
+            <!-- Form registrasi -->
             <form method="post" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>">
                 <div class="mb-3">
                     <label for="username" class="form-label">Username</label>
@@ -199,15 +207,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 </div>
             </form>
 
-            <div class="text-center mt-4">
-                <small class="text-muted">© <?php echo date('Y'); ?> SENTIMENKNN - Sistem Analisis Sentimen</small>
-            </div>
+
         </div>
     </div>
 
-    <!-- Bootstrap JS -->
+    <!-- Menyertakan Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Js Script -->
+    <!-- Menyertakan script tambahan -->
     <script src="assets/js/index.js"></script>
 
 </body>

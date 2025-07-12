@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify, Blueprint
 import re
-from deep_translator import GoogleTranslator
-from langdetect import detect
+# from deep_translator import GoogleTranslator
+# from langdetect import detect
 
 from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
 from Sastrawi.StopWordRemover.StopWordRemoverFactory import StopWordRemoverFactory
@@ -13,7 +13,7 @@ import numpy as np
 # Inisialisasi Flask app
 app = Flask(__name__)
 
-# === STOPWORD SETUP ===
+
 
 def load_additional_stopwords(filepath='stopword-list.txt'):
     """Load additional stopwords from external file"""
@@ -63,7 +63,7 @@ custom_stopword_remover = CustomStopwordRemover(combined_stopwords)
 stemmer_factory = StemmerFactory()
 stemmer = stemmer_factory.create_stemmer()
 
-# === SLANG DICTIONARY SETUP ===
+
 
 def load_slang_dictionary(filename='slang_dictionary.txt'):
     """Load slang dictionary from file"""
@@ -72,14 +72,14 @@ def load_slang_dictionary(filename='slang_dictionary.txt'):
         with open(filename, 'r', encoding='utf-8') as file:
             for line_num, line in enumerate(file, 1):
                 line = line.strip()
-                if not line or line.startswith('#'):  # Skip empty lines and comments
+                if not line or line.startswith('#'): 
                     continue
                     
                 if ' => ' not in line:
                     print(f"[WARNING] Invalid format at line {line_num}: {line}")
                     continue
                     
-                parts = line.split(' => ', 1)  # Split only on first occurrence
+                parts = line.split(' => ', 1)  
                 if len(parts) != 2:
                     print(f"[WARNING] Invalid format at line {line_num}: {line}")
                     continue
@@ -98,7 +98,7 @@ def load_slang_dictionary(filename='slang_dictionary.txt'):
 
 slang_dict = load_slang_dictionary()
 
-# === TEXT PREPROCESSING FUNCTIONS ===
+
 
 def clean_text(text):
     if not text:
@@ -132,47 +132,44 @@ def normalize_slang(text):
     
     return ' '.join(normalized_words)
 
-def translate_to_indonesian(text):
-    """Translate text to Indonesian if needed"""
-    if not text:
-        return text
+# def translate_to_indonesian(text):
+#     """Translate text to Indonesian if needed"""
+#     if not text:
+#         return text
         
-    try:
-        detected_lang = detect(text)
+#     try:
+#         detected_lang = detect(text)
         
-        # Only translate if not Indonesian
-        if detected_lang != 'id':
-            translated = GoogleTranslator(source='auto', target='id').translate(text)
-            return translated
-        else:
-            return text
-    except Exception as e:
-        print(f"[WARNING] Translation failed: {e}")
-        return text
+#         # Only translate if not Indonesian
+#         if detected_lang != 'id':
+#             translated = GoogleTranslator(source='auto', target='id').translate(text)
+#             return translated
+#         else:
+#             return text
+#     except Exception as e:
+#         print(f"[WARNING] Translation failed: {e}")
+#         return text
 
 def preprocess_text_step_by_step(text, debug=False):
     """
     Comprehensive preprocessing with step-by-step tracking
     """
-    # STEP 1: Detect and translate if needed
-    translated_text = translate_to_indonesian(text)
+    # STEP 1: Clean text
+    cleaned_text = clean_text(text)
 
-    # STEP 2: Clean text
-    cleaned_text = clean_text(translated_text)
-
-    # STEP 3: Case folding
+    # STEP 2: Case folding
     casefolded_text = cleaned_text.lower()
 
-    # STEP 4: Slang normalization
+    # STEP 3: Slang normalization
     normalized_slang_text = normalize_slang(casefolded_text)
 
-    # STEP 5: Tokenizing
+    # STEP 4: Tokenizing
     tokenized_text = normalized_slang_text.split()
 
-    # STEP 6: Stopword removal
+    # STEP 5: Stopword removal
     stopword_removed_text = custom_stopword_remover.remove(' '.join(tokenized_text))
 
-    # STEP 7: Stemming
+    # STEP 6: Stemming
     stemmed_words = []
     for word in stopword_removed_text.split():
         if word:  # Only stem non-empty words
@@ -183,17 +180,16 @@ def preprocess_text_step_by_step(text, debug=False):
 
     return {
         'original_text': text,
-        'translated_text': translated_text,
         'cleaned_text': cleaned_text,
         'casefolded_text': casefolded_text,
         'slang_normalized_text': normalized_slang_text,
         'tokenized_text': tokenized_text,
         'stopword_removed_text': stopword_removed_text,
         'stemmed_text': stemmed_text,
-        'final_processed_text': stemmed_text  # This is the final result
+        'final_processed_text': stemmed_text  
     }
 
-# === FIXED TF-IDF COMPUTATION FUNCTIONS ===
+
 
 def compute_tf_from_final_text(final_processed_text):
     """

@@ -18,7 +18,7 @@ if (!isset($error_message)) {
     // Cek apakah query berhasil
     if ($result && $result->num_rows > 0) {
         while ($row = $result->fetch_assoc()) {
-            $key = strtolower($row['sentiment']); // pastikan lowercase
+            $key = strtolower($row['sentiment']);
             $sentimentData[$key] = (int)$row['jumlah'];
             $sentimentData['total'] += (int)$row['jumlah'];
         }
@@ -88,7 +88,6 @@ $negativePercentage = $sentimentData['total'] > 0 ? round(($sentimentData['negat
                         <ul class="list-unstyled">
                             <li><i class="bi bi-check-circle text-success me-2"></i><strong>Algoritma:</strong> KNN</li>
                             <li><i class="bi bi-check-circle text-success me-2"></i><strong>Sumber:</strong> Twitter/X</li>
-                            <li><i class="bi bi-check-circle text-success me-2"></i><strong>Preprocessing:</strong> Cleaning</li>
                             <li><i class="bi bi-check-circle text-success me-2"></i><strong>Klasifikasi:</strong> Positif / Negatif</li>
                             <li><i class="bi bi-check-circle text-success me-2"></i><strong>Total Dataset:</strong> <?php echo number_format($sentimentData['total']); ?> tweet</li>
                         </ul>

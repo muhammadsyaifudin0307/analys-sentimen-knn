@@ -150,9 +150,9 @@ $result = $conn->query($query);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Preprocessing Example</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <style>
-
         .table th,
         .table td {
             text-align: center;
@@ -163,157 +163,145 @@ $result = $conn->query($query);
             white-space: nowrap;
         }
 
-        .table-responsive {
-            overflow-x: auto;
+        .btn-primary {
+            background: #3498db;
+            border-color: #3498db;
+            padding: 12px 30px;
+            font-weight: 500;
+            border-radius: 4px;
         }
 
-        .pagination-container {
-            margin-top: 20px;
-        }
-
-        .btn-pagination {
-            margin: 0 2px;
-        }
-
-        .btn-pagination.active {
-            background-color: #007bff;
-            color: white;
+        .btn-primary:hover {
+            background: #2980b9;
+            border-color: #2980b9;
         }
     </style>
 </head>
 
 <body>
-    <div class="p-4 ">
-
-
-        <form method="post" action="" id="preprocessForm" class="text-center mb-4">
-            <button type="submit" class="btn btn-success btn-lg">
-                <i class="fas fa-cogs"></i> Lakukan Preprocessing
-            </button>
-        </form>
-
-     <div id="progressContainer" class="mt-3 mb-3" style="display: none;">
-        <div class="progress" style="height: 25px;">
-            <div class="progress-bar progress-bar-striped progress-bar-animated bg-info" 
-                role="progressbar" style="width: 100%;">
-                Sedang diproses...
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
             </div>
+            <h6 class="mb-2">Menganalisis ...</h6>
+            <p class="text-muted mb-0">Memproses dengan algoritma KNN</p>
         </div>
     </div>
 
+    <div class="main-container p-4">
+        <div class="content">
+            <!-- Preprocessing Form -->
+            <form method="post" action="" id="preprocessForm" class="text-center mb-4">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-play-circle me-2"></i>Lakukan Preprocessing
+                </button>
+            </form>
 
-        <?php if ($total_count > 0): ?>
-            <div class="alert alert-info text-center">
-                Total Data: <strong><?php echo $total_count; ?></strong> |
-                Page: <strong><?php echo $page; ?></strong> of <strong><?php echo $total_pages; ?></strong>
-            </div>
-        <?php endif; ?>
+            <!-- Data Table -->
+            <?php if ($total_count > 0): ?>
+                <div class="alert alert-info text-center">
+                    Total Data: <strong><?php echo $total_count; ?></strong> |
+                    Page: <strong><?php echo $page; ?></strong> of <strong><?php echo $total_pages; ?></strong>
+                </div>
+            <?php endif; ?>
 
-        <div class="table-responsive">
-            <table class="table table-striped table-hover table-bordered">
-                <thead class="table-dark">
-                    <tr>
-                        <th>Name</th>
-                        <th>Cleaning</th>
-                        <th>Casefolding</th>
-                        <th>Normalization</th>
-                        <th>Tokenization</th>
-                        <th>Stopword</th>
-                        <th>Stemming</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php
-                    if ($result && $result->num_rows > 0) {
-                        $counter = ($page - 1) * 10 + 1; // Mulai dari D1 di halaman pertama, D11 di halaman kedua, dll
-                        while ($row = $result->fetch_assoc()) {
-                            // Decode JSON dengan pengecekan null
-                            $tokenization = json_decode($row['tokenization'] ?? '[]', true);
-                            $stopword = json_decode($row['stopword'] ?? '[]', true);
-                            $stemming = $row['stemming'] ?? '';
-
-                            // Pastikan array valid sebelum implode
-                            $tokenization_display = is_array($tokenization) ? implode(", ", $tokenization) : '';
-                            $stopword_display = is_array($stopword) ? implode(", ", $stopword) : '';
-                            $stemming_display = is_string($stemming) ? $stemming : '';
-
-                            $name = "D" . $counter++; // Penomoran yang berlanjut
-                            echo "<tr>
-                                    <td><strong>{$name}</strong></td>
-                                    <td title='" . safe_htmlspecialchars($row['cleaning']) . "'>" . safe_htmlspecialchars($row['cleaning']) . "</td>
-                                    <td title='" . safe_htmlspecialchars($row['casefolding']) . "'>" . safe_htmlspecialchars($row['casefolding']) . "</td>
-                                    <td title='" . safe_htmlspecialchars($row['normalisasi']) . "'>" . safe_htmlspecialchars($row['normalisasi']) . "</td>
-                                    <td title='" . safe_htmlspecialchars($tokenization_display) . "'>[" . safe_htmlspecialchars($tokenization_display) . "]</td>
-                                    <td title='" . safe_htmlspecialchars($stopword_display) . "'>[" . safe_htmlspecialchars($stopword_display) . "]</td>
-                                    <td title='" . safe_htmlspecialchars($stemming_display) . "'>" . safe_htmlspecialchars($stemming_display) . "</td>
-                                  </tr>";
-                        }
-                    } else {
-                        echo "<tr><td colspan='7' class='text-muted'>No data found. Please run preprocessing first.</td></tr>";
-                    }
-                    ?>
-                </tbody>
-            </table>
-        </div>
-
-        <?php if ($total_pages > 1): ?>
-            <div class="pagination-container d-flex justify-content-center">
-                <nav aria-label="Page navigation">
-                    <ul class="pagination">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover table-bordered">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Name</th>
+                            <th>Cleaning</th>
+                            <th>Casefolding</th>
+                            <th>Normalization</th>
+                            <th>Tokenization</th>
+                            <th>Stopword</th>
+                            <th>Stemming</th>
+                        </tr>
+                    </thead>
+                    <tbody>
                         <?php
-                        // Pagination links
-                        $current_url = "http://" . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
-                        $parsed_url = parse_url($current_url);
-                        parse_str($parsed_url['query'] ?? '', $query_params);
+                        if ($result && $result->num_rows > 0) {
+                            $counter = ($page - 1) * 30 + 1;
+                            while ($row = $result->fetch_assoc()) {
+                                // Decode JSON with null check
+                                $tokenization = json_decode($row['tokenization'] ?? '[]', true);
+                                $stopword = json_decode($row['stopword'] ?? '[]', true);
+                                $stemming = $row['stemming'] ?? '';
 
-                        // Previous button
-                        if ($page > 1) {
-                            $query_params['pagination'] = $page - 1;
-                            $prev_url = $parsed_url['path'] . '?' . http_build_query($query_params);
-                            echo "<li class='page-item'><a class='page-link' href='$prev_url'>Previous</a></li>";
-                        }
+                                // Ensure valid arrays before imploding
+                                $tokenization_display = is_array($tokenization) ? implode(", ", $tokenization) : '';
+                                $stopword_display = is_array($stopword) ? implode(", ", $stopword) : '';
+                                $stemming_display = is_string($stemming) ? $stemming : '';
 
-                        // Page numbers
-                        for ($i = 1; $i <= $total_pages; $i++) {
-                            $query_params['pagination'] = $i;
-                            $new_url = $parsed_url['path'] . '?' . http_build_query($query_params);
-                            $active_class = ($i == $page) ? 'active' : '';
-                            echo "<li class='page-item $active_class'><a class='page-link' href='$new_url'>$i</a></li>";
-                        }
-
-                        // Next button
-                        if ($page < $total_pages) {
-                            $query_params['pagination'] = $page + 1;
-                            $next_url = $parsed_url['path'] . '?' . http_build_query($query_params);
-                            echo "<li class='page-item'><a class='page-link' href='$next_url'>Next</a></li>";
+                                $name = "D" . $counter++; // Sequential numbering
+                                echo "<tr>
+                                        <td><strong>{$name}</strong></td>
+                                        <td title='" . htmlspecialchars($row['cleaning']) . "'>" . htmlspecialchars($row['cleaning']) . "</td>
+                                        <td title='" . htmlspecialchars($row['casefolding']) . "'>" . htmlspecialchars($row['casefolding']) . "</td>
+                                        <td title='" . htmlspecialchars($row['normalisasi']) . "'>" . htmlspecialchars($row['normalisasi']) . "</td>
+                                        <td title='" . htmlspecialchars($tokenization_display) . "'>[" . htmlspecialchars($tokenization_display) . "]</td>
+                                        <td title='" . htmlspecialchars($stopword_display) . "'>[" . htmlspecialchars($stopword_display) . "]</td>
+                                        <td title='" . htmlspecialchars($stemming_display) . "'>" . htmlspecialchars($stemming_display) . "</td>
+                                      </tr>";
+                            }
+                        } else {
+                            echo "<tr><td colspan='7' class='text-muted'>No data found. Please run preprocessing first.</td></tr>";
                         }
                         ?>
-                    </ul>
-                </nav>
+                    </tbody>
+                </table>
             </div>
-        <?php endif; ?>
+
+            <!-- Pagination -->
+            <?php if ($total_pages > 1): ?>
+                <div class="pagination-container d-flex justify-content-center">
+                    <nav aria-label="Page navigation">
+                        <ul class="pagination">
+                            <?php
+                            // Pagination links
+                            $current_url = "http://" . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
+                            $parsed_url = parse_url($current_url);
+                            parse_str($parsed_url['query'] ?? '', $query_params);
+
+                            // Previous button
+                            if ($page > 1) {
+                                $query_params['pagination'] = $page - 1;
+                                $prev_url = $parsed_url['path'] . '?' . http_build_query($query_params);
+                                echo "<li class='page-item'><a class='page-link' href='$prev_url'>Previous</a></li>";
+                            }
+
+                            // Page numbers
+                            for ($i = 1; $i <= $total_pages; $i++) {
+                                $query_params['pagination'] = $i;
+                                $new_url = $parsed_url['path'] . '?' . http_build_query($query_params);
+                                $active_class = ($i == $page) ? 'active' : '';
+                                echo "<li class='page-item $active_class'><a class='page-link' href='$new_url'>$i</a></li>";
+                            }
+
+                            // Next button
+                            if ($page < $total_pages) {
+                                $query_params['pagination'] = $page + 1;
+                                $next_url = $parsed_url['path'] . '?' . http_build_query($query_params);
+                                echo "<li class='page-item'><a class='page-link' href='$next_url'>Next</a></li>";
+                            }
+                            ?>
+                        </ul>
+                    </nav>
+                </div>
+            <?php endif; ?>
+        </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.min.js"></script>
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-       document.getElementById('preprocessForm').addEventListener('submit', function(e) {
-    // Tampilkan progress bar
-    document.getElementById('progressContainer').style.display = 'block';
-
-    // Disable button untuk mencegah multiple submit
-    const submitBtn = this.querySelector('button[type="submit"]');
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Sedang diproses...';
-});
-
-// Auto hide progress bar jika ada error (fallback)
-window.addEventListener('load', function () {
-    setTimeout(function () {
-        document.getElementById('progressContainer').style.display = 'none';
-    }, 100);
-});
-
+        // Handle form submission for preprocessing
+        document.getElementById('preprocessForm').addEventListener('submit', function(e) {
+            document.getElementById('loadingOverlay').style.display = 'flex'; // Show loading overlay
+            this.querySelector('button[type="submit"]').disabled = true; // Disable submit button
+        });
     </script>
 </body>
 

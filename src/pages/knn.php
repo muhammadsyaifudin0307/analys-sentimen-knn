@@ -145,865 +145,567 @@ function getKNNResultsByK($conn, $k_value = null)
     $stmt->execute();
     return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 }
+$total_results = count($knn_results['results'] ?? []);
+$results_per_tab = 10;
+$total_tabs = ceil($total_results / $results_per_tab);
 
 $current_confusion_matrix = isset($_POST['k_value']) ? getConfusionMatrixByK($conn, intval($_POST['k_value'])) : [];
 $current_confusion_summary = isset($_POST['k_value']) ? getConfusionMatrixSummaryByK($conn, intval($_POST['k_value'])) : null;
 $current_k_results = isset($_POST['k_value']) ? getKNNResultsByK($conn, intval($_POST['k_value'])) : [];
 
-    ?>
-    <!DOCTYPE html>
-    <html lang="id">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Klasifikasi KNN</title>
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
-        <style>
-            body {
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                background-color: #f8f9fa;
-            }
-            
-            .main-container {
-                margin: 0 auto;
-                background: white;
-                border-radius: 8px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                overflow: hidden;
-            }
-            
-            .header {
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                color: white;
-                padding: 30px;
-                text-align: center;
-            }
-            
-            .header h1 {
-                font-size: 2rem;
-                font-weight: 700;
-                margin-bottom: 10px;
-            }
-            
-            .header p {
-                font-size: 1.1rem;
-                opacity: 0.9;
-                margin-bottom: 0;
-            }
-            
-            .content {
-                padding: 30px;
-            }
-            
-            .stats-section {
-                margin-bottom: 30px;
-            }
-            
-            .stat-card {
-                background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
-                border: 1px solid #e9ecef;
-                border-radius: 8px;
-                padding: 25px;
-                text-align: center;
-                transition: transform 0.3s ease, box-shadow 0.3s ease;
-                height: 100%;
-            }
-            
-            .stat-card:hover {
-                transform: translateY(-5px);
-                box-shadow: 0 5px 20px rgba(0,0,0,0.1);
-            }
-            
-            .stat-card .icon {
-                font-size: 2.5rem;
-                margin-bottom: 15px;
-            }
-            
-            .stat-card.training .icon {
-                color: #4e54c8;
-            }
-            
-            .stat-card.testing .icon {
-                color: #43e97b;
-            }
-            
-            .stat-number {
-                font-size: 2.5rem;
-                font-weight: 700;
-                color: #2c3e50;
-                margin-bottom: 8px;
-            }
-            
-            .stat-label {
-                font-size: 1rem;
-                color: #6c757d;
-                font-weight: 500;
-            }
-            
-            .form-section {
-                background: #f8f9fa;
-                padding: 25px;
-                border-radius: 8px;
-                margin-bottom: 30px;
-                border: 1px solid #e9ecef;
-            }
-            
-            .form-section h3 {
-                font-size: 1.3rem;
-                margin-bottom: 20px;
-                color: #2c3e50;
-                font-weight: 600;
-            }
-            
-            .form-label {
-                font-weight: 500;
-                color: #495057;
-                margin-bottom: 8px;
-            }
-            
-            .form-control, .form-select {
-                border: 1px solid #ddd;
-                border-radius: 6px;
-                padding: 12px 15px;
-                font-size: 0.95rem;
-                transition: border-color 0.3s ease, box-shadow 0.3s ease;
-            }
-            
-            .form-control:focus, .form-select:focus {
-                border-color: #3498db;
-                box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
-            }
-            
-            .btn-primary {
-                background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
-                border: none;
-                padding: 12px 30px;
-                font-weight: 500;
-                border-radius: 6px;
-                transition: all 0.3s ease;
-            }
-            
-            .btn-primary:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
-            }
-            
-            .results-section {
-                background: white;
-                border: 1px solid #e9ecef;
-                border-radius: 8px;
-                padding: 25px;
-                margin-bottom: 30px;
-            }
-            
-            .results-section h3 {
-                font-size: 1.3rem;
-                margin-bottom: 20px;
-                color: #2c3e50;
-                font-weight: 600;
-            }
-            
-            .alert {
-                border-radius: 6px;
-                padding: 15px;
-                margin-bottom: 20px;
-                border: none;
-            }
-            
-            .alert-danger {
-                background: linear-gradient(135deg, #ff7675 0%, #e17055 100%);
-                color: white;
-            }
-            
-            .alert-success {
-                background: linear-gradient(135deg, #55a3ff 0%, #003d82 100%);
-                color: white;
-            }
-            
-            .table {
-                margin-bottom: 0;
-            }
-            
-            .table th {
-                background: #f8f9fa;
-                border-top: none;
-                font-weight: 600;
-                color: #495057;
-                padding: 15px;
-                border-bottom: 2px solid #dee2e6;
-            }
-            
-            .table td {
-                padding: 15px;
-                vertical-align: middle;
-                border-bottom: 1px solid #f1f3f4;
-            }
-            
-            .table-striped tbody tr:nth-of-type(odd) {
-                background-color: #f8f9fa;
-            }
-            
-            .badge {
-                font-size: 0.85rem;
-                padding: 8px 12px;
-                border-radius: 6px;
-                font-weight: 500;
-            }
-            
-            .badge-success {
-                background: linear-gradient(135deg, #00b894 0%, #00a085 100%);
-            }
-            
-            .badge-danger {
-                background: linear-gradient(135deg, #e17055 0%, #d63031 100%);
-            }
-            
-            .badge-primary {
-                background: linear-gradient(135deg, #0984e3 0%, #74b9ff 100%);
-            }
-            
-            .badge-warning {
-                background: linear-gradient(135deg, #fdcb6e 0%, #e17055 100%);
-            }
-            
-            .knn-result-card {
-                border: 1px solid #e9ecef;
-                border-radius: 8px;
-                margin-bottom: 20px;
-                background: white;
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-                transition: all 0.3s ease;
-                overflow: hidden;
-            }
-            
-            .knn-result-card:hover {
-                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.12);
-            }
-            
-            .knn-result-header {
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                color: white;
-                padding: 20px;
-                cursor: pointer;
-                transition: all 0.3s ease;
-            }
-            
-            .knn-result-header:hover {
-                background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
-            }
-            
-            .text-preview {
-                background: rgba(255, 255, 255, 0.2);
-                padding: 10px;
-                border-radius: 6px;
-                margin-top: 10px;
-                border-left: 3px solid #ffeaa7;
-                font-style: italic;
-            }
-            
-            .collapse-content {
-                padding: 25px;
-                background: #f8f9fa;
-                border-top: 1px solid #e9ecef;
-            }
-            
-            .chevron-icon {
-                transition: transform 0.3s ease;
-            }
-            
-            .collapsed .chevron-icon {
-                transform: rotate(-90deg);
-            }
-            
-            .knn-info-grid {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 25px;
-            }
-            
-            .neighbor-item {
-                background: white;
-                border: 1px solid #e9ecef;
-                border-left: 4px solid #3498db;
-                padding: 15px;
-                margin-bottom: 10px;
-                border-radius: 6px;
-                transition: all 0.3s ease;
-            }
-            
-            .neighbor-item:hover {
-                border-left-color: #2980b9;
-                transform: translateX(5px);
-            }
-            
-            .distance-badge {
-                background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
-                color: white;
-                font-size: 0.75rem;
-                font-family: 'Consolas', 'Monaco', monospace;
-            }
-            
-            .comparison-section {
-                background: white;
-                border: 1px solid #e9ecef;
-                border-radius: 8px;
-                padding: 25px;
-                margin-bottom: 30px;
-            }
-            
-            .comparison-stats {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-                gap: 20px;
-                margin-bottom: 25px;
-            }
-            
-            .comparison-stat {
-                text-align: center;
-                padding: 20px;
-                background: #f8f9fa;
-                border-radius: 8px;
-                border: 1px solid #e9ecef;
-            }
-            
-            .comparison-stat h6 {
-                color: #6c757d;
-                margin-bottom: 10px;
-                font-weight: 600;
-            }
-            
-            .comparison-stat .badge {
-                font-size: 1rem;
-                padding: 8px 16px;
-            }
-            
-            .confusion-matrix-section {
-                background: white;
-                border: 1px solid #e9ecef;
-                border-radius: 8px;
-                padding: 25px;
-                margin-bottom: 30px;
-            }
-            
-            .confusion-matrix-section h4 {
-                color: #2c3e50;
-                font-weight: 600;
-                margin-bottom: 20px;
-            }
-            
-            .table-dark {
-                background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-            }
-            
-            .table-secondary {
-                background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
-                color: white;
-            }
-            
-            .result-table {
-                max-height: 500px;
-                overflow-y: auto;
-                border: 1px solid #e9ecef;
-                border-radius: 8px;
-            }
-            
-            .action-buttons {
-                display: flex;
-                gap: 10px;
-                margin-bottom: 20px;
-            }
-            
-            .btn-outline-primary, .btn-outline-secondary {
-                border-width: 2px;
-                padding: 8px 16px;
-                font-weight: 500;
-                border-radius: 6px;
-                transition: all 0.3s ease;
-            }
-            
-            .btn-outline-primary:hover, .btn-outline-secondary:hover {
-                transform: translateY(-2px);
-            }
-            
-            .loading-overlay {
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0, 0, 0, 0.5);
-                display: none;
-                justify-content: center;
-                align-items: center;
-                z-index: 9999;
-            }
-            
-            .loading-content {
-                background: white;
-                padding: 30px;
-                border-radius: 8px;
-                text-align: center;
-                box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-            }
-            
-            .spinner-border {
-                width: 2rem;
-                height: 2rem;
-                margin-bottom: 15px;
-            }
-            
-            @media (max-width: 768px) {
-                .content {
-                    padding: 20px;
-                }
-                
-                .knn-info-grid {
-                    grid-template-columns: 1fr;
-                }
-                
-                .comparison-stats {
-                    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-                }
-                
-                .header {
-                    padding: 20px;
-                }
-                
-                .form-section {
-                    padding: 20px;
-                }
-            }
-        </style>
-    </head>
-    <body>
-        <div class="loading-overlay" id="loadingOverlay">
-            <div class="loading-content">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Loading...</span>
-                </div>
-                <h6 class="mb-2">Memproses Klasifikasi...</h6>
-                <p class="text-muted mb-0">Menganalisis dengan algoritma KNN</p>
+?>
+
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Klasifikasi KNN</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+
+</head>
+<style>
+    .btn-primary {
+        background: #3498db;
+        border-color: #3498db;
+        padding: 12px 30px;
+        font-weight: 500;
+        border-radius: 4px;
+    }
+
+    .btn-primary:hover {
+        background: #2980b9;
+        border-color: #2980b9;
+    }
+</style>
+
+<body>
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
             </div>
+            <h6 class="mb-2">Memproses Klasifikasi...</h6>
+            <p class="text-muted mb-0">Menganalisis dengan algoritma KNN</p>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="header">
+            <h1><i class="bi bi-diagram-3 me-3"></i>Klasifikasi KNN</h1>
+            <p>Analisis Sentimen dengan K-Nearest Neighbors</p>
         </div>
 
-        <div class="main-container">
-            <div class="header">
-                <h1><i class="bi bi-diagram-3 me-3"></i>Klasifikasi KNN</h1>
-                <p>Analisis Sentimen dengan K-Nearest Neighbors</p>
+        <div class="content">
+            <!-- Statistics Section -->
+            <div class="stats-section">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="stat-card training">
+                            <div class="icon">
+                                <i class="bi bi-book-half"></i>
+                            </div>
+                            <div class="stat-number"><?= $datasetCounts['data_latih'] ?? '0'; ?></div>
+                            <div class="stat-label">Data Latih</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="stat-card testing">
+                            <div class="icon">
+                                <i class="bi bi-clipboard-data"></i>
+                            </div>
+                            <div class="stat-number"><?= $datasetCounts['data_uji'] ?? '0'; ?></div>
+                            <div class="stat-label">Data Uji</div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <div class="content">
-                <!-- Statistics Section -->
-                <div class="stats-section">
-                    <div class="row g-4">
-                        <div class="col-md-6">
-                            <div class="stat-card training">
-                                <div class="icon">
-                                    <i class="bi bi-book-half"></i>
-                                </div>
-                                <div class="stat-number"><?= $datasetCounts['data_latih'] ?? '0'; ?></div>
-                                <div class="stat-label">Data Latih</div>
-                            </div>
+            <!-- Form Input -->
+            <div class="form-section mt-4">
+                <h3><i class="bi bi-gear me-2"></i>Klasifikasi Sentimen KNN</h3>
+                <form method="POST" action="" id="knnForm">
+                    <div class="mb-3">
+                        <label for="k_value" class="form-label">Nilai K</label>
+                        <input type="number" class="form-control" id="k_value" name="k_value"
+                            placeholder="Masukkan nilai K (contoh: 3, 5, 7)"
+                            min="1" max="<?= $datasetCounts['data_latih'] ?? '100'; ?>" required>
+                        <div class="form-text">
+                            <i class="bi bi-info-circle me-1"></i>
+                            <strong class="text-warning">Disarankan memilih nilai ganjil untuk menghindari hasil seri.</strong>
                         </div>
-                        <div class="col-md-6">
-                            <div class="stat-card testing">
-                                <div class="icon">
-                                    <i class="bi bi-clipboard-data"></i>
-                                </div>
-                                <div class="stat-number"><?= $datasetCounts['data_uji'] ?? '0'; ?></div>
-                                <div class="stat-label">Data Uji</div>
-                            </div>
-                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-play-circle me-2"></i>Mulai Klasifikasi
+                    </button>
+                </form>
+            </div>
+
+            <!-- Error Message -->
+            <?php if ($error_message ?? false): ?>
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>Error:</strong> <?php echo htmlspecialchars($error_message); ?>
+                </div>
+            <?php endif; ?>
+
+            <!-- Prediction Result -->
+            <?php if (($prediction ?? false) && !($error_message ?? false)): ?>
+                <div class="results-section">
+                    <h3><i class="bi bi-check-circle me-2"></i>Hasil Klasifikasi</h3>
+                    <div class="alert alert-success">
+                        <strong>Prediksi Berhasil:</strong> <?php echo htmlspecialchars($prediction); ?>
                     </div>
                 </div>
-
-                <!-- Form Input -->
-                <div class="form-section">
-                    <h3><i class="bi bi-gear me-2"></i>Pengaturan Klasifikasi</h3>
-                    <form method="POST" action="" id="knnForm">
-                        <div class="mb-3">
-                            <label for="k_value" class="form-label">Nilai K</label>
-                            <input type="number" class="form-control" id="k_value" name="k_value"
-                                placeholder="Masukkan nilai K (contoh: 3, 5, 7)"
-                                min="1" max="<?= $datasetCounts['data_latih'] ?? '100'; ?>" required>
-                            <div class="form-text">
-                                <i class="bi bi-info-circle me-1"></i>
-                                <strong class="text-warning">Disarankan memilih nilai ganjil untuk menghindari hasil seri.</strong>
-                            </div>
-                        </div>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-play-circle me-2"></i>Mulai Klasifikasi
-                        </button>
-                    </form>
-                </div>
-
-                <!-- Error Message -->
-                <?php if ($error_message ?? false): ?>
-                    <div class="alert alert-danger">
-                        <i class="bi bi-exclamation-triangle me-2"></i>
-                        <strong>Error:</strong> <?php echo htmlspecialchars($error_message); ?>
-                    </div>
-                <?php endif; ?>
-
-                <!-- Prediction Result -->
-                <?php if (($prediction ?? false) && !($error_message ?? false)): ?>
-                    <div class="results-section">
-                        <h3><i class="bi bi-check-circle me-2"></i>Hasil Klasifikasi</h3>
-                        <div class="alert alert-success">
-                            <strong>Prediksi Berhasil:</strong> <?php echo htmlspecialchars($prediction); ?>
+            <?php endif; ?>
+            <!-- Detailed KNN Results dengan Tab System -->
+            <?php if (($knn_results ?? false) && !($error_message ?? false)): ?>
+                <div class="results-section">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h3><i class="bi bi-list-ul me-2"></i>Detail Hasil Klasifikasi (<?= $total_results ?> Data)</h3>
+                        <div class="action-buttons">
+                            <button type="button" class="btn btn-outline-primary" onclick="expandAllInActiveTab()">
+                                <i class="bi bi-arrows-expand me-1"></i>Buka Semua
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="collapseAllInActiveTab()">
+                                <i class="bi bi-arrows-collapse me-1"></i>Tutup Semua
+                            </button>
                         </div>
                     </div>
-                <?php endif; ?>
 
-                <!-- Detailed KNN Results -->
-                <?php if (($knn_results ?? false) && !($error_message ?? false)): ?>
-                    <div class="results-section">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h3><i class="bi bi-list-ul me-2"></i>Detail Hasil Klasifikasi</h3>
-                            <div class="action-buttons">
-                                <button type="button" class="btn btn-outline-primary" onclick="expandAll()">
-                                    <i class="bi bi-arrows-expand me-1"></i>Buka Semua
-                                </button>
-                                <button type="button" class="btn btn-outline-secondary" onclick="collapseAll()">
-                                    <i class="bi bi-arrows-collapse me-1"></i>Tutup Semua
-                                </button>
-                            </div>
+                    <?php if ($total_results > 0): ?>
+                        <!-- Enhanced Tab Navigation -->
+                        <div class="tabs-wrapper">
+                            <ul class="nav nav-tabs custom-tabs" id="resultsTab" role="tablist">
+                                <?php for ($tab = 1; $tab <= $total_tabs; $tab++): ?>
+                                    <?php
+                                    $start_num = ($tab - 1) * $results_per_tab + 1;
+                                    $end_num = min($tab * $results_per_tab, $total_results);
+                                    ?>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link custom-tab-btn <?= $tab === 1 ? 'active' : '' ?>"
+                                            id="tab<?= $tab ?>-tab"
+                                            data-bs-toggle="tab"
+                                            data-bs-target="#tab<?= $tab ?>"
+                                            type="button"
+                                            role="tab"
+                                            aria-controls="tab<?= $tab ?>"
+                                            aria-selected="<?= $tab === 1 ? 'true' : 'false' ?>">
+                                            <div class="tab-content-wrapper">
+                                                <div class="tab-icon">
+                                                    <i class="bi bi-collection me-2"></i>
+                                                </div>
+                                                <div class="tab-info">
+                                                    <span class="tab-title">Tabs <?= $tab ?></span>
+                                                    <small class="tab-subtitle">Data <?= $start_num ?>-<?= $end_num ?></small>
+                                                </div>
+                                            </div>
+                                        </button>
+                                    </li>
+                                <?php endfor; ?>
+                            </ul>
                         </div>
 
-                        <?php foreach ($knn_results['results'] as $index => $result): ?>
-                            <div class="knn-result-card">
-                                <div class="knn-result-header collapsed" data-bs-toggle="collapse"
-                                    data-bs-target="#collapse<?= $index; ?>" aria-expanded="false">
-                                    <div class="d-flex align-items-center justify-content-between">
-                                        <div class="d-flex align-items-center">
-                                            <strong class="me-3">#<?= $index + 1; ?></strong>
-                                            <span class="badge <?= strtolower($result['predicted_label']) === 'negative' ? 'badge-danger' : 'badge-success' ?> me-3">
-                                                <?= htmlspecialchars($result['predicted_label']); ?>
-                                            </span>
-                                        </div>
-                                        <div class="d-flex align-items-center">
-                                            <small class="me-3">
-                                                (<?php
-                                                    $distributions = [];
-                                                    foreach ($result['label_distribution'] as $label => $count):
-                                                        $distributions[] = $label . ': ' . $count;
-                                                    endforeach;
-                                                    echo implode(', ', $distributions);
-                                                ?>)
-                                            </small>
-                                            <i class="bi bi-chevron-down chevron-icon"></i>
-                                        </div>
-                                    </div>
-                                    <div class="text-preview">
-                                        <small><?= htmlspecialchars(substr($result['test_text'], 0, 100)); ?>...</small>
-                                    </div>
-                                </div>
+                        <!-- Enhanced Tab Content -->
+                        <div class="tab-content custom-tab-content" id="resultsTabContent">
+                            <?php for ($tab = 1; $tab <= $total_tabs; $tab++): ?>
+                                <div class="tab-pane fade <?= $tab === 1 ? 'show active' : '' ?>"
+                                    id="tab<?= $tab ?>"
+                                    role="tabpanel"
+                                    aria-labelledby="tab<?= $tab ?>-tab"
+                                    style="padding: 25px; background: #f8f9fa; border-radius: 0 0 8px 8px;">
 
-                                <div class="collapse" id="collapse<?= $index; ?>">
-                                    <div class="collapse-content">
-                                        <div class="knn-info-grid">
-                                            <div>
-                                                <h6 class="text-primary mb-3">
-                                                    <i class="bi bi-file-text me-2"></i>Informasi Teks
-                                                </h6>
-                                                <div class="mb-3">
-                                                    <strong>Teks Lengkap:</strong>
-                                                    <div class="p-3 bg-light border-start border-primary border-3 mt-2">
-                                                        <?= htmlspecialchars($result['test_text']); ?>
+                                    <?php
+                                    $start_index = ($tab - 1) * $results_per_tab;
+                                    $end_index = min($start_index + $results_per_tab, $total_results);
+                                    ?>
+
+                                    <!-- Tab Content Header -->
+                                    <div class="tab-content-header mb-4">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <h5 class="mb-0">
+                                                <i class="bi bi-file-earmark-text me-2 text-primary"></i>
+                                                Halaman <?= $tab ?> - Menampilkan <?= $end_index - $start_index ?> dari <?= $total_results ?> data
+                                            </h5>
+                                            <div class="tab-stats">
+                                                <span class="badge bg-light text-dark">
+                                                    <?= $start_index + 1 ?> - <?= $end_index ?>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <?php for ($i = $start_index; $i < $end_index; $i++): ?>
+                                        <?php $result = $knn_results['results'][$i]; ?>
+                                        <div class="knn-result-card" id="card-<?= $i ?>">
+                                            <div class="knn-result-header collapsed"
+                                                data-bs-toggle="collapse"
+                                                data-bs-target="#collapse<?= $i ?>"
+                                                aria-expanded="false">
+                                                <div class="d-flex align-items-center justify-content-between">
+                                                    <div class="d-flex align-items-center">
+                                                        <strong class="me-3">Doc - <?= $i + 1 ?></strong>
+                                                        <span class="badge <?= strtolower($result['predicted_label']) === 'negative' ? 'badge-danger' : 'badge-success' ?> me-3">
+                                                            <?= htmlspecialchars($result['predicted_label']) ?>
+                                                        </span>
+                                                    </div>
+                                                    <div class="d-flex align-items-center">
+                                                        <small class="me-3">
+                                                            (<?php
+                                                                $distributions = [];
+                                                                foreach ($result['label_distribution'] as $label => $count):
+                                                                    $distributions[] = $label . ': ' . $count;
+                                                                endforeach;
+                                                                echo implode(', ', $distributions);
+                                                                ?>)
+                                                        </small>
+                                                        <button class="close-btn me-2"
+                                                            onclick="closeCard(<?= $i ?>)"
+                                                            title="Tutup"
+                                                            style="background: none; border: none; color: #666; font-size: 1.2rem; cursor: pointer; padding: 0; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: all 0.2s;">
+                                                            <i class="bi bi-x"></i>
+                                                        </button>
+                                                        <i class="bi bi-chevron-down chevron-icon"></i>
                                                     </div>
                                                 </div>
-                                                <div class="mb-3">
-                                                    <strong>Prediksi:</strong>
-                                                    <span class="badge <?= strtolower($result['predicted_label']) === 'negative' ? 'badge-danger' : 'badge-success' ?> ms-2">
-                                                        <?= htmlspecialchars($result['predicted_label']); ?>
-                                                    </span>
-                                                </div>
-                                                <div class="mb-3">
-                                                    <strong>Distribusi Label:</strong>
-                                                    <div class="mt-2">
-                                                        <?php foreach ($result['label_distribution'] as $label => $count): ?>
-                                                            <span class="badge <?= strtolower($label) === 'positive' ? 'badge-success' : 'badge-danger' ?> me-2 mb-1">
-                                                                <?= htmlspecialchars($label); ?>: <?= $count; ?>
-                                                            </span>
-                                                        <?php endforeach; ?>
-                                                    </div>
+                                                <div class="text-preview">
+                                                    <small><?= htmlspecialchars(substr($result['test_text'], 0, 100)) ?>...</small>
                                                 </div>
                                             </div>
 
-                                            <div>
-                                                <h6 class="text-success mb-3">
-                                                    <i class="bi bi-bullseye me-2"></i>K-Nearest Neighbors
-                                                </h6>
-                                                <div class="neighbor-list">
-                                                    <?php foreach ($result['k_nearest_neighbors'] as $neighbor_index => $neighbor): ?>
-                                                        <div class="neighbor-item">
-                                                            <div class="d-flex justify-content-between align-items-center">
-                                                                <div>
-                                                                    <strong class="text-primary">Tetangga #<?= $neighbor_index + 1; ?></strong>
-                                                                    <div class="mt-1">
-                                                                        <span class="badge <?= strtolower($neighbor['label']) === 'positive' ? 'badge-success' : 'badge-danger' ?> me-2">
-                                                                            <?= htmlspecialchars($neighbor['label']); ?>
+                                            <div class="collapse" id="collapse<?= $i ?>">
+                                                <div class="collapse-content">
+                                                    <div class="knn-info-grid">
+                                                        <div>
+                                                            <h6 class="text-primary mb-3">
+                                                                <i class="bi bi-file-text me-2"></i>Informasi Teks
+                                                            </h6>
+                                                            <div class="mb-3">
+                                                                <strong>Teks Lengkap:</strong>
+                                                                <div class="p-3 bg-light border-start border-primary border-3 mt-2">
+                                                                    <?= htmlspecialchars($result['test_text']) ?>
+                                                                </div>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <strong>Prediksi:</strong>
+                                                                <span class="badge <?= strtolower($result['predicted_label']) === 'negative' ? 'badge-danger' : 'badge-success' ?> ms-2">
+                                                                    <?= htmlspecialchars($result['predicted_label']) ?>
+                                                                </span>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <strong>Distribusi Label:</strong>
+                                                                <div class="mt-2">
+                                                                    <?php foreach ($result['label_distribution'] as $label => $count): ?>
+                                                                        <span class="badge <?= strtolower($label) === 'positive' ? 'badge-success' : 'badge-danger' ?> me-2 mb-1">
+                                                                            <?= htmlspecialchars($label) ?>: <?= $count ?>
                                                                         </span>
-                                                                        <span class="badge distance-badge">
-                                                                            Jarak: <?= number_format($neighbor['distance'], 4); ?>
-                                                                        </span>
-                                                                    </div>
+                                                                    <?php endforeach; ?>
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                    <?php endforeach; ?>
+
+                                                        <div>
+                                                            <h6 class="text-success mb-3">
+                                                                <i class="bi bi-bullseye me-2"></i>K-Nearest Neighbors
+                                                            </h6>
+                                                            <div class="neighbor-list">
+                                                                <?php foreach ($result['k_nearest_neighbors'] as $neighbor_index => $neighbor): ?>
+                                                                    <div class="neighbor-item">
+                                                                        <div class="d-flex justify-content-between align-items-center">
+                                                                            <div>
+                                                                                <strong class="text-primary">Tetangga #<?= $neighbor_index + 1 ?></strong>
+                                                                                <div class="mt-1">
+                                                                                    <span class="badge <?= strtolower($neighbor['label']) === 'positive' ? 'badge-success' : 'badge-danger' ?> me-2">
+                                                                                        <?= htmlspecialchars($neighbor['label']) ?>
+                                                                                    </span>
+                                                                                    <span class="badge distance-badge">
+                                                                                        Jarak: <?= number_format($neighbor['distance'], 4) ?>
+                                                                                    </span>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                <?php endforeach; ?>
+                                                            </div>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
+                                    <?php endfor; ?>
                                 </div>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
-
-                <!-- Comparison Results -->
-                <?php if (!empty($current_k_results ?? [])): ?>
-                    <div class="comparison-section">
-                        <h3><i class="bi bi-table me-2"></i>Perbandingan Hasil (K=<?= $current_k_results[0]['k_value'] ?? ''; ?>)</h3>
-                        
-                        <?php
-                        $correct_count = array_sum(array_column($current_k_results, 'is_correct'));
-                        $total_count = count($current_k_results);
-                        ?>
-                        
-                        <div class="comparison-stats">
-                            <div class="comparison-stat">
-                                <h6>Total Data</h6>
-                                <span class="badge badge-primary"><?= $total_count; ?></span>
-                            </div>
-                            <div class="comparison-stat">
-                                <h6>Prediksi Benar</h6>
-                                <span class="badge badge-success"><?= $correct_count; ?></span>
-                            </div>
-                            <div class="comparison-stat">
-                                <h6>Prediksi Salah</h6>
-                                <span class="badge badge-danger"><?= $total_count - $correct_count; ?></span>
-                            </div>
+                            <?php endfor; ?>
                         </div>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
 
-                        <div class="result-table">
-                            <table class="table table-striped table-hover">
-                                <thead class="table-dark">
-                                    <tr>
-                                        <th>No</th>
-                                        <th>Tweet</th>
-                                        <th>Aktual</th>
-                                        <th>Prediksi</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php foreach ($current_k_results as $index => $result): ?>
-                                        <tr>
-                                            <td><?= $index + 1; ?></td>
-                                            <td class="text-truncate" style="max-width: 200px;" title="<?= htmlspecialchars($result['tweet']); ?>">
-                                                <?= htmlspecialchars(substr($result['tweet'], 0, 50)); ?>...
-                                            </td>
-                                            <td>
-                                                <span class="badge <?= strtolower($result['actual_sentiment']) === 'negative' ? 'badge-danger' : 'badge-success' ?>">
-                                                    <?= htmlspecialchars($result['actual_sentiment']); ?>
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <span class="badge <?= strtolower($result['predicted_sentiment']) === 'negative' ? 'badge-danger' : 'badge-success' ?>">
-                                                    <?= htmlspecialchars($result['predicted_sentiment']); ?>
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <span class="badge <?= $result['is_correct'] ? 'badge-success' : 'badge-danger' ?>">
-                                                    <i class="bi <?= $result['is_correct'] ? 'bi-check-circle' : 'bi-x-circle' ?> me-1"></i>
-                                                    <?= $result['is_correct'] ? 'Benar' : 'Salah' ?>
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
+
+            <!-- Comparison Results -->
+            <?php if (!empty($current_k_results ?? [])): ?>
+                <div class="comparison-section">
+                    <h3><i class="bi bi-table me-2"></i>Perbandingan Hasil (K=<?= $current_k_results[0]['k_value'] ?? ''; ?>)</h3>
+
+                    <?php
+                    $correct_count = array_sum(array_column($current_k_results, 'is_correct'));
+                    $total_count = count($current_k_results);
+                    ?>
+
+                    <div class="comparison-stats d-flex justify-content-between">
+                        <div class="comparison-stat">
+                            <h6>Total Data</h6>
+                            <span class="badge badge-primary"><?= $total_count; ?></span>
+                        </div>
+                        <div class="comparison-stat">
+                            <h6>Prediksi Benar</h6>
+                            <span class="badge badge-success"><?= $correct_count; ?></span>
+                        </div>
+                        <div class="comparison-stat">
+                            <h6>Prediksi Salah</h6>
+                            <span class="badge badge-danger"><?= $total_count - $correct_count; ?></span>
                         </div>
                     </div>
-                <?php endif; ?>
 
-                <!-- Confusion Matrix -->
-                <?php if (!empty($current_confusion_matrix ?? [])): ?>
-                    <div class="confusion-matrix-section">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h4><i class="bi bi-grid-3x3 me-2"></i>Confusion Matrix</h4>
-                            <span class="badge badge-primary">K = <?= htmlspecialchars($k_value ?? ''); ?></span>
-                        </div>
-
-                        <div class="table-responsive">
-                            <table class="table table-bordered text-center">
-                                <thead class="table-dark">
+                    <div class="result-table">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>No</th>
+                                    <th>Tweet</th>
+                                    <th>Aktual</th>
+                                    <th>Prediksi</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($current_k_results as $index => $result): ?>
                                     <tr>
-                                        <th>Actual \ Predicted</th>
-                                        <?php
-                                        $predicted_labels = [];
-                                        foreach ($current_confusion_matrix as $row) {
-                                            if (!in_array($row['predicted_label'], $predicted_labels) && $row['actual_label'] !== 'summary') {
-                                                $predicted_labels[] = $row['predicted_label'];
-                                            }
-                                        }
-                                        foreach ($predicted_labels as $label):
-                                            echo "<th class='text-capitalize'>$label</th>";
-                                        endforeach;
-                                        ?>
+                                        <td><?= $index + 1; ?></td>
+                                        <td class="text-truncate" style="max-width: 200px;" title="<?= htmlspecialchars($result['tweet']); ?>">
+                                            <?= htmlspecialchars(substr($result['tweet'], 0, 50)); ?>...
+                                        </td>
+                                        <td>
+                                            <span class="badge <?= strtolower($result['actual_sentiment']) === 'negative' ? 'badge-danger' : 'badge-success' ?>">
+                                                <?= htmlspecialchars($result['actual_sentiment']); ?>
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge <?= strtolower($result['predicted_sentiment']) === 'negative' ? 'badge-danger' : 'badge-success' ?>">
+                                                <?= htmlspecialchars($result['predicted_sentiment']); ?>
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge <?= $result['is_correct'] ? 'badge-success' : 'badge-danger' ?>">
+                                                <i class="bi <?= $result['is_correct'] ? 'bi-check-circle' : 'bi-x-circle' ?> me-1"></i>
+                                                <?= $result['is_correct'] ? 'Benar' : 'Salah' ?>
+                                            </span>
+                                        </td>
                                     </tr>
-                                </thead>
-                                <tbody>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            <?php endif; ?>
+
+            <!-- Confusion Matrix -->
+            <?php if (!empty($current_confusion_matrix ?? [])): ?>
+                <div class="confusion-matrix-section">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4><i class="bi bi-grid-3x3 me-2"></i>Confusion Matrix</h4>
+                        <span class="badge badge-primary">K = <?= htmlspecialchars($k_value ?? ''); ?></span>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-bordered text-center">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Actual \ Predicted</th>
                                     <?php
-                                    $actual_labels = [];
+                                    $predicted_labels = [];
                                     foreach ($current_confusion_matrix as $row) {
-                                        if (!in_array($row['actual_label'], $actual_labels) && $row['actual_label'] !== 'summary') {
-                                            $actual_labels[] = $row['actual_label'];
+                                        if (!in_array($row['predicted_label'], $predicted_labels) && $row['actual_label'] !== 'summary') {
+                                            $predicted_labels[] = $row['predicted_label'];
                                         }
                                     }
-
-                                    foreach ($actual_labels as $actual):
-                                        echo "<tr><th class='bg-light text-capitalize'>$actual</th>";
-                                        foreach ($predicted_labels as $predicted):
-                                            $value = 0;
-                                            foreach ($current_confusion_matrix as $row) {
-                                                if ($row['actual_label'] === $actual && $row['predicted_label'] === $predicted) {
-                                                    $value = $row['count'];
-                                                    break;
-                                                }
-                                            }
-                                            echo "<td class='fw-bold'>$value</td>";
-                                        endforeach;
-                                        echo "</tr>";
+                                    foreach ($predicted_labels as $label):
+                                        echo "<th class='text-capitalize'>$label</th>";
                                     endforeach;
                                     ?>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                <?php endif; ?>
-
-          <?php if (!empty($current_confusion_summary)): ?>
-            <div class="container my-4 p-4 shadow-sm">
-                <h4 class="fw-bold">Classification Report</h4>
-                <div class="table-responsive shadow-sm">
-                    <table class="table table-striped table-bordered text-center mt-3">
-                        <thead class="table-dark">
-                            <tr>
-                                <th>Label</th>
-                                <th>Precision</th>
-                                <th>Recall</th>
-                                <th>F1-Score</th>
-                                <th>Support</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php
-                            $labels = [];
-                            foreach ($current_confusion_matrix as $row) {
-                                if ($row['actual_label'] !== 'summary') {
-                                    $label = $row['actual_label'];
-                                    if (!isset($labels[$label])) {
-                                        $labels[$label] = $row;
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php
+                                $actual_labels = [];
+                                foreach ($current_confusion_matrix as $row) {
+                                    if (!in_array($row['actual_label'], $actual_labels) && $row['actual_label'] !== 'summary') {
+                                        $actual_labels[] = $row['actual_label'];
                                     }
                                 }
-                            }
 
-                            foreach ($labels as $label => $metrics): ?>
-                                <tr>
-                                    <td class="text-capitalize"><?= htmlspecialchars($label) ?></td>
-                                    <td><?= number_format($metrics['precision'] ?? 0, 2) ?></td>
-                                    <td><?= number_format($metrics['recall'] ?? 0, 2) ?></td>
-                                    <td><?= number_format($metrics['f1_score'] ?? 0, 2) ?></td>
-                                    <td><?= $metrics['support'] ?? ($metrics['tp'] + $metrics['fn']) ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                        <tfoot>
-                            <tr class="table-secondary fw-bold">
-                                <th>Accuracy</th>
-                                <td colspan="4">
-                                    <?= isset($current_confusion_summary['accuracy']) ? number_format($current_confusion_summary['accuracy'] * 100, 2) . '%' : '-' ?>
-                                </td>
-                            </tr>
-                            <tr class="table-secondary fw-bold">
-                                <th>Macro Avg</th>
-                                <td><?= isset($current_confusion_summary['macro_precision']) ? number_format($current_confusion_summary['macro_precision'], 2) : '-' ?></td>
-                                <td><?= isset($current_confusion_summary['macro_recall']) ? number_format($current_confusion_summary['macro_recall'], 2) : '-' ?></td>
-                                <td><?= isset($current_confusion_summary['macro_f1_score']) ? number_format($current_confusion_summary['macro_f1_score'], 2) : '-' ?></td>
-                                <td><?= $current_confusion_summary['total_samples'] ?? '-' ?></td>
-                            </tr>
-
-                        </tfoot>
-                    </table>
+                                foreach ($actual_labels as $actual):
+                                    echo "<tr><th class='bg-light text-capitalize'>$actual</th>";
+                                    foreach ($predicted_labels as $predicted):
+                                        $value = 0;
+                                        foreach ($current_confusion_matrix as $row) {
+                                            if ($row['actual_label'] === $actual && $row['predicted_label'] === $predicted) {
+                                                $value = $row['count'];
+                                                break;
+                                            }
+                                        }
+                                        echo "<td class='fw-bold'>$value</td>";
+                                    endforeach;
+                                    echo "</tr>";
+                                endforeach;
+                                ?>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>
-        <?php endif; ?>
+            <?php endif; ?>
 
+            <?php if (!empty($current_confusion_summary)): ?>
+                <div class=" p-4 shadow-sm">
+                    <h4 class="fw-bold">Classification Report</h4>
+                    <div class="table-responsive shadow-sm">
+                        <table class="table table-striped table-bordered text-center mt-3">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Label</th>
+                                    <th>Precision</th>
+                                    <th>Recall</th>
+                                    <th>F1-Score</th>
+                                    <th>Support</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php
+                                $labels = [];
+                                foreach ($current_confusion_matrix as $row) {
+                                    if ($row['actual_label'] !== 'summary') {
+                                        $label = $row['actual_label'];
+                                        if (!isset($labels[$label])) {
+                                            $labels[$label] = $row;
+                                        }
+                                    }
+                                }
 
-        <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.min.js"></script>
+                                foreach ($labels as $label => $metrics): ?>
+                                    <tr>
+                                        <td class="text-capitalize"><?= htmlspecialchars($label) ?></td>
+                                        <td><?= number_format($metrics['precision'] ?? 0, 2) ?></td>
+                                        <td><?= number_format($metrics['recall'] ?? 0, 2) ?></td>
+                                        <td><?= number_format($metrics['f1_score'] ?? 0, 2) ?></td>
+                                        <td><?= $metrics['support'] ?? ($metrics['tp'] + $metrics['fn']) ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                            <tfoot>
+                                <tr class="table-secondary fw-bold">
+                                    <th>Accuracy</th>
+                                    <td colspan="4">
+                                        <?= isset($current_confusion_summary['accuracy']) ? number_format($current_confusion_summary['accuracy'] * 100, 2) . '%' : '-' ?>
+                                    </td>
+                                </tr>
+                                <tr class="table-secondary fw-bold">
+                                    <th>Macro Avg</th>
+                                    <td><?= isset($current_confusion_summary['macro_precision']) ? number_format($current_confusion_summary['macro_precision'], 2) : '-' ?></td>
+                                    <td><?= isset($current_confusion_summary['macro_recall']) ? number_format($current_confusion_summary['macro_recall'], 2) : '-' ?></td>
+                                    <td><?= isset($current_confusion_summary['macro_f1_score']) ? number_format($current_confusion_summary['macro_f1_score'], 2) : '-' ?></td>
+                                    <td><?= $current_confusion_summary['total_samples'] ?? '-' ?></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
 
-        <script>
-            // Script untuk mengatur rotasi chevron icon saat collapse
-            document.addEventListener('DOMContentLoaded', function() {
-                const collapseElements = document.querySelectorAll('.collapse');
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.min.js"></script>
 
-                collapseElements.forEach(function(collapse) {
-                    collapse.addEventListener('show.bs.collapse', function() {
-                        const header = document.querySelector('[data-bs-target="#' + this.id + '"]');
-                        if (header) {
-                            header.classList.remove('collapsed');
-                        }
-                    });
+    <script>
+        // Menunggu hingga DOM sepenuhnya dimuat
+        document.addEventListener('DOMContentLoaded', function() {
+            // Mengambil form berdasarkan ID
+            const knnForm = document.getElementById('knnForm');
 
-                    collapse.addEventListener('hide.bs.collapse', function() {
-                        const header = document.querySelector('[data-bs-target="#' + this.id + '"]');
-                        if (header) {
-                            header.classList.add('collapsed');
-                        }
-                    });
-                });
+            // Menambahkan event listener pada form untuk menangani submit
+            knnForm.addEventListener('submit', function(e) {
+                e.preventDefault(); // Mencegah form untuk dikirimkan secara default
+                document.getElementById('loadingOverlay').style.display = 'flex'; // Menampilkan loading overlay
 
-                // Event listener untuk tombol tutup individual - PERBAIKAN UTAMA
-                const closeButtons = document.querySelectorAll('[data-close-collapse]');
-                closeButtons.forEach(function(button) {
-                    button.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        e.stopPropagation();
+                // Menonaktifkan tombol submit agar tidak bisa diklik berulang kali
+                this.querySelector('button[type="submit"]').disabled = true;
 
-                        const targetId = this.getAttribute('data-close-collapse');
-                        const targetElement = document.getElementById(targetId);
-
-                        if (targetElement) {
-                            const bsCollapse = bootstrap.Collapse.getOrCreateInstance(targetElement);
-                            bsCollapse.hide();
-                        }
-                    });
-                });
+                // Menunggu sedikit sebelum mengirimkan form agar overlay muncul lebih jelas
+                setTimeout(() => {
+                    knnForm.submit(); // Kirimkan form setelah overlay tampil
+                }, 1000);
             });
+        });
 
-            // Function untuk membuka semua collapse
-            function expandAll() {
-                const collapseElements = document.querySelectorAll('.collapse');
-                collapseElements.forEach(function(collapse) {
-                    const bsCollapse = bootstrap.Collapse.getOrCreateInstance(collapse);
-                    bsCollapse.show();
-                });
-            }
+        document.addEventListener('DOMContentLoaded', function() {
+            // Fungsi untuk menutup card individual ketika tombol "x" ditekan
+            window.closeCard = function(index) {
+                event.stopPropagation(); // Mencegah event klik propagasi lebih lanjut
 
-            // Function untuk menutup semua collapse
-            function collapseAll() {
-                const collapseElements = document.querySelectorAll('.collapse');
-                collapseElements.forEach(function(collapse) {
-                    const bsCollapse = bootstrap.Collapse.getOrCreateInstance(collapse);
-                    bsCollapse.hide();
-                });
-            }
-        </script>
+                // Ambil elemen collapse berdasarkan index
+                const collapseElement = document.getElementById(`collapse${index}`);
+
+                // Cek apakah elemen collapse ada
+                if (collapseElement) {
+                    // Membuat instance Bootstrap Collapse untuk elemen yang dipilih
+                    const bsCollapse = new bootstrap.Collapse(collapseElement, {
+                        toggle: false
+                    }); // toggle: false artinya tidak langsung membuka atau menutup, kita kontrol manual
+                    bsCollapse.hide(); // Menyembunyikan collapse tanpa menghapus elemen
+                }
+            };
+
+            // Function untuk membuka semua collapse di tab aktif
+            window.expandAllInActiveTab = function() {
+                const activeTabPane = document.querySelector('.tab-pane.active');
+                if (activeTabPane) {
+                    const collapseElements = activeTabPane.querySelectorAll('.collapse');
+                    collapseElements.forEach(function(collapse) {
+                        const bsCollapse = bootstrap.Collapse.getOrCreateInstance(collapse);
+                        bsCollapse.show(); // Membuka semua collapse di tab aktif
+                    });
+                }
+            };
+
+            // Function untuk menutup semua collapse di tab aktif
+            window.collapseAllInActiveTab = function() {
+                const activeTabPane = document.querySelector('.tab-pane.active');
+                if (activeTabPane) {
+                    const collapseElements = activeTabPane.querySelectorAll('.collapse');
+                    collapseElements.forEach(function(collapse) {
+                        const bsCollapse = bootstrap.Collapse.getOrCreateInstance(collapse);
+                        bsCollapse.hide(); // Menutup semua collapse di tab aktif
+                    });
+                }
+            };
+
+            // Event listener untuk mengatur rotasi chevron
+            document.addEventListener('click', function(e) {
+                if (e.target.closest('.knn-result-header')) {
+                    const header = e.target.closest('.knn-result-header');
+                    const chevron = header.querySelector('.chevron-icon');
+
+                    if (chevron) {
+                        setTimeout(() => {
+                            const isExpanded = !header.classList.contains('collapsed');
+                            chevron.style.transform = isExpanded ? 'rotate(180deg)' : 'rotate(0deg)';
+                        }, 10);
+                    }
+                }
+            });
+        });
+    </script>
 </body>
 
 </html>

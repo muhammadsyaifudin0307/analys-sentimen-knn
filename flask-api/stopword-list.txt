@@ -46,6 +46,11 @@ f
 rb
 pp
 ken
+tf
+tn
+t
+o
+af
 e
 iki
 kl
